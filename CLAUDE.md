@@ -163,11 +163,70 @@ end
 
 ## Testing
 
+### Running Tests
+
 ```bash
 bundle exec rspec
 ```
 
 Tests use fixtures and mocked Claude calls. No real API calls in tests.
+
+### Test Structure
+
+```
+spec/
+├── spec_helper.rb           # RSpec config + SimpleCov setup
+├── support/
+│   ├── temp_directory.rb    # Shared context for temp dirs
+│   ├── github_api_mocks.rb  # WebMock helpers for GitHub API
+│   └── claude_cli_mocks.rb  # Helpers for mocking claude CLI
+├── fixtures/
+│   ├── github_api/          # Sample GitHub API responses
+│   ├── state_files/         # Sample .claude-task-master files
+│   └── claude_output/       # Sample Claude CLI output
+└── claude_task_master/
+    ├── state_spec.rb        # State management tests
+    ├── claude_spec.rb       # Claude CLI wrapper tests
+    ├── github_spec.rb       # GitHub integration tests
+    ├── loop_spec.rb         # Main loop tests
+    ├── cli_spec.rb          # CLI command tests
+    └── pr_comment_spec.rb   # PR comment model tests
+```
+
+### Testing Approach
+
+**Mocking Strategy:**
+- **GitHub API**: WebMock stubs all Octokit calls, fixtures in `spec/fixtures/github_api/`
+- **Claude CLI**: Mock `Open3.popen2e` to avoid real CLI invocations
+- **File I/O**: Use temporary directories (cleaned up after each test)
+- **External commands**: Mock `gh` CLI, `git` commands where needed
+
+**Coverage Goals:**
+- Overall: 80%+
+- Core modules (State, Claude): 90%+
+- Integrations (GitHub): 85%+
+- Models (PRComment): 95%+
+- CLI/Loop: 80%+
+
+**Shared Contexts:**
+- `:temp_dir` - Creates temporary directory, changes into it for test
+- `:github_api` - Enables WebMock, provides GitHub API stub helpers
+- `:claude_cli` - Provides helpers for mocking Claude CLI calls
+
+**Example Test:**
+
+```ruby
+require "spec_helper"
+
+RSpec.describe ClaudeTaskMaster::State, :temp_dir do
+  it "initializes state directory" do
+    state = described_class.new
+
+    expect(File.directory?(".claude-task-master")).to be true
+    expect(File.directory?(".claude-task-master/logs")).to be true
+  end
+end
+```
 
 ## Development
 

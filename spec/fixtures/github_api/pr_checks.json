@@ -1,0 +1,29 @@
+{
+  "total_count": 3,
+  "check_runs": [
+    {
+      "id": 3001,
+      "name": "CI / test",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-01-14T12:00:00Z",
+      "completed_at": "2026-01-14T12:05:00Z"
+    },
+    {
+      "id": 3002,
+      "name": "CI / lint",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-01-14T12:00:00Z",
+      "completed_at": "2026-01-14T12:03:00Z"
+    },
+    {
+      "id": 3003,
+      "name": "CI / build",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-01-14T12:00:00Z",
+      "completed_at": "2026-01-14T12:07:00Z"
+    }
+  ]
+}

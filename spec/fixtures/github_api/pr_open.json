@@ -1,0 +1,23 @@
+{
+  "number": 123,
+  "state": "open",
+  "title": "Add new feature",
+  "body": "This PR adds a new feature",
+  "html_url": "https://github.com/owner/repo/pull/123",
+  "user": {
+    "login": "testuser"
+  },
+  "head": {
+    "ref": "feature-branch",
+    "sha": "abc123"
+  },
+  "base": {
+    "ref": "main",
+    "sha": "def456"
+  },
+  "mergeable": true,
+  "mergeable_state": "clean",
+  "merged": false,
+  "created_at": "2026-01-14T12:00:00Z",
+  "updated_at": "2026-01-14T12:00:00Z"
+}

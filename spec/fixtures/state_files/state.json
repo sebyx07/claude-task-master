@@ -1,0 +1,10 @@
+{
+  "status": "working",
+  "current_task": "Implement user authentication",
+  "current_pr": 1,
+  "pr_number": 123,
+  "pr_ready": false,
+  "session_count": 5,
+  "started_at": "2026-01-14T10:00:00Z",
+  "updated_at": "2026-01-14T12:00:00Z"
+}

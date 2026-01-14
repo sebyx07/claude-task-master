@@ -1,0 +1,6 @@
+# Fixtures directory for test data
+#
+# This directory contains:
+# - github_api/ - Mocked GitHub API responses (PR data, comments, checks, etc.)
+# - state_files/ - Sample .claude-task-master state files for testing
+# - claude_output/ - Sample Claude CLI output for mocking

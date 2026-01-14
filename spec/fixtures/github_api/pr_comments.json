@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1001,
+    "body": "Please fix the linting issues in this file.",
+    "user": {
+      "login": "coderabbit[bot]"
+    },
+    "created_at": "2026-01-14T12:05:00Z",
+    "path": "lib/example.rb",
+    "line": 42
+  },
+  {
+    "id": 1002,
+    "body": "Consider adding error handling here.",
+    "user": {
+      "login": "copilot[bot]"
+    },
+    "created_at": "2026-01-14T12:10:00Z",
+    "path": "lib/example.rb",
+    "line": 55
+  },
+  {
+    "id": 1003,
+    "body": "LGTM! Great work on the tests.",
+    "user": {
+      "login": "reviewer"
+    },
+    "created_at": "2026-01-14T12:15:00Z",
+    "path": "spec/example_spec.rb",
+    "line": 10
+  }
+]

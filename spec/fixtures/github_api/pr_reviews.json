@@ -1,0 +1,20 @@
+[
+  {
+    "id": 2001,
+    "user": {
+      "login": "reviewer"
+    },
+    "state": "APPROVED",
+    "body": "Looks good overall!",
+    "submitted_at": "2026-01-14T12:20:00Z"
+  },
+  {
+    "id": 2002,
+    "user": {
+      "login": "coderabbit[bot]"
+    },
+    "state": "COMMENTED",
+    "body": "Found some issues that need attention.",
+    "submitted_at": "2026-01-14T12:25:00Z"
+  }
+]

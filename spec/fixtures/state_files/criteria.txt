@@ -1,0 +1,5 @@
+- User registration and login endpoints work
+- JWT authentication is implemented
+- CRUD operations for tasks are functional
+- Tests pass with 80%+ coverage
+- API documentation is complete
