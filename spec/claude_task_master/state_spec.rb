@@ -140,7 +140,7 @@ RSpec.describe ClaudeTaskMaster::State, :temp_dir do
       end
 
       it "returns nil when file does not exist" do
-        expect(state.plan).to be_nil if !File.exist?(File.join(state.dir, "plan.md"))
+        expect(state.plan).to be_nil unless File.exist?(File.join(state.dir, "plan.md"))
       end
     end
 
@@ -293,6 +293,357 @@ RSpec.describe ClaudeTaskMaster::State, :temp_dir do
       File.write(File.join(state.dir, "logs", "other-file.txt"), "content")
 
       expect(state.next_session_number).to eq(2)
+    end
+  end
+
+  describe "state management" do
+    before do
+      FileUtils.mkdir_p(state.dir)
+    end
+
+    describe "#load_state" do
+      it "returns nil when state file does not exist" do
+        expect(state.load_state).to be_nil
+      end
+
+      it "loads state from JSON file with symbol keys" do
+        state_data = {
+          status: "working",
+          current_task: "Build feature",
+          session_count: 5
+        }
+        File.write(File.join(state.dir, "state.json"), JSON.generate(state_data))
+
+        loaded = state.load_state
+
+        expect(loaded[:status]).to eq("working")
+        expect(loaded[:current_task]).to eq("Build feature")
+        expect(loaded[:session_count]).to eq(5)
+      end
+
+      it "handles empty state file" do
+        File.write(File.join(state.dir, "state.json"), "{}")
+
+        expect(state.load_state).to eq({})
+      end
+
+      it "parses nested data structures" do
+        state_data = {
+          status: "blocked",
+          pr_data: {
+            number: 42,
+            url: "https://github.com/user/repo/pull/42"
+          }
+        }
+        File.write(File.join(state.dir, "state.json"), JSON.generate(state_data))
+
+        loaded = state.load_state
+
+        expect(loaded[:pr_data][:number]).to eq(42)
+        expect(loaded[:pr_data][:url]).to eq("https://github.com/user/repo/pull/42")
+      end
+    end
+
+    describe "#save_state" do
+      it "saves state as JSON with pretty formatting" do
+        state.save_state(status: "working", current_task: "Build API")
+
+        content = File.read(File.join(state.dir, "state.json"))
+        parsed = JSON.parse(content, symbolize_names: true)
+
+        expect(parsed[:status]).to eq("working")
+        expect(parsed[:current_task]).to eq("Build API")
+      end
+
+      it "automatically adds updated_at timestamp" do
+        freeze_time = Time.parse("2026-01-14T15:30:00-05:00")
+        allow(Time).to receive(:now).and_return(freeze_time)
+
+        state.save_state(status: "planning")
+        parsed = JSON.parse(File.read(File.join(state.dir, "state.json")), symbolize_names: true)
+
+        expect(parsed[:updated_at]).to eq("2026-01-14T15:30:00-05:00")
+      end
+
+      it "overwrites existing state" do
+        File.write(File.join(state.dir, "state.json"), JSON.generate(status: "old"))
+        state.save_state(status: "new", task: "New task")
+
+        parsed = JSON.parse(File.read(File.join(state.dir, "state.json")), symbolize_names: true)
+
+        expect(parsed[:status]).to eq("new")
+        expect(parsed[:task]).to eq("New task")
+      end
+
+      it "preserves complex data types" do
+        state.save_state(
+          status: "working",
+          counts: [1, 2, 3],
+          metadata: { key: "value" },
+          flag: true
+        )
+
+        parsed = JSON.parse(File.read(File.join(state.dir, "state.json")), symbolize_names: true)
+
+        expect(parsed[:counts]).to eq([1, 2, 3])
+        expect(parsed[:metadata][:key]).to eq("value")
+        expect(parsed[:flag]).to be true
+      end
+    end
+
+    describe "#update_state" do
+      it "merges new fields with existing state" do
+        state.save_state(status: "working", session_count: 1)
+        state.update_state(current_task: "New task")
+
+        loaded = state.load_state
+
+        expect(loaded[:status]).to eq("working")
+        expect(loaded[:session_count]).to eq(1)
+        expect(loaded[:current_task]).to eq("New task")
+      end
+
+      it "overwrites existing fields" do
+        state.save_state(status: "working", current_task: "Old task")
+        state.update_state(status: "blocked", current_task: "New task")
+
+        loaded = state.load_state
+
+        expect(loaded[:status]).to eq("blocked")
+        expect(loaded[:current_task]).to eq("New task")
+      end
+
+      it "handles empty existing state" do
+        state.update_state(status: "planning", session_count: 0)
+
+        loaded = state.load_state
+
+        expect(loaded[:status]).to eq("planning")
+        expect(loaded[:session_count]).to eq(0)
+      end
+
+      it "updates timestamp on each update" do
+        freeze_time1 = Time.parse("2026-01-14T10:00:00-05:00")
+        freeze_time2 = Time.parse("2026-01-14T11:00:00-05:00")
+
+        allow(Time).to receive(:now).and_return(freeze_time1)
+        state.save_state(status: "working")
+
+        allow(Time).to receive(:now).and_return(freeze_time2)
+        state.update_state(current_task: "Task")
+
+        loaded = state.load_state
+        expect(loaded[:updated_at]).to eq("2026-01-14T11:00:00-05:00")
+      end
+    end
+  end
+
+  describe "#build_context" do
+    before do
+      FileUtils.mkdir_p(state.dir)
+    end
+
+    it "builds complete context string with all sections" do
+      File.write(File.join(state.dir, "goal.txt"), "Build a REST API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      File.write(File.join(state.dir, "plan.md"), "# Plan\n- Task 1\n- Task 2")
+      File.write(File.join(state.dir, "context.md"), "# Context\nLearned X")
+      File.write(File.join(state.dir, "progress.md"), "# Progress\nDone Y")
+      state.save_state(
+        status: "working",
+        current_task: "Task 1",
+        pr_number: 42,
+        session_count: 5
+      )
+
+      context = state.build_context
+
+      expect(context).to include("# Current State")
+      expect(context).to include("## Goal")
+      expect(context).to include("Build a REST API")
+      expect(context).to include("## Success Criteria")
+      expect(context).to include("Tests pass")
+      expect(context).to include("## Status")
+      expect(context).to include("Phase: working")
+      expect(context).to include("Current task: Task 1")
+      expect(context).to include("PR: #42")
+      expect(context).to include("Session: 5")
+      expect(context).to include("## Plan")
+      expect(context).to include("- Task 1")
+      expect(context).to include("## Context from Previous Sessions")
+      expect(context).to include("Learned X")
+      expect(context).to include("## Recent Progress")
+      expect(context).to include("Done Y")
+    end
+
+    it "handles missing goal file" do
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("## Goal")
+      expect(context).not_to include("Build")
+    end
+
+    it "handles missing criteria file" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("## Success Criteria")
+      expect(context).not_to include("Tests")
+    end
+
+    it "shows placeholder when no plan exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "planning")
+
+      context = state.build_context
+
+      expect(context).to include("_No plan yet. Generate one first._")
+    end
+
+    it "shows placeholder when no context exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("_No context yet._")
+    end
+
+    it "shows placeholder when no progress exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("_No progress yet._")
+    end
+
+    it "handles missing state file" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+
+      context = state.build_context
+
+      expect(context).to include("Phase: unknown")
+      expect(context).to include("Current task: none")
+      expect(context).to include("PR: none")
+      expect(context).to include("Session: 0")
+    end
+
+    it "shows 'none' when no PR number" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working", pr_number: nil)
+
+      context = state.build_context
+
+      expect(context).to include("PR: none")
+    end
+
+    it "formats PR number with hash" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working", pr_number: 123)
+
+      context = state.build_context
+
+      expect(context).to include("PR: #123")
+    end
+
+    it "handles nil current_task" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "planning", current_task: nil)
+
+      context = state.build_context
+
+      expect(context).to include("Current task: none")
+    end
+  end
+
+  describe "status checks" do
+    before do
+      FileUtils.mkdir_p(state.dir)
+    end
+
+    describe "#success?" do
+      it "returns true when status is success" do
+        state.save_state(status: "success")
+
+        expect(state.success?).to be true
+      end
+
+      it "returns false when status is not success" do
+        state.save_state(status: "working")
+
+        expect(state.success?).to be false
+      end
+
+      it "returns false when state file does not exist" do
+        expect(state.success?).to be_falsey
+      end
+
+      it "returns false when status is nil" do
+        state.save_state(current_task: "task")
+
+        expect(state.success?).to be false
+      end
+    end
+
+    describe "#blocked?" do
+      it "returns true when status is blocked" do
+        state.save_state(status: "blocked")
+
+        expect(state.blocked?).to be true
+      end
+
+      it "returns false when status is not blocked" do
+        state.save_state(status: "working")
+
+        expect(state.blocked?).to be false
+      end
+
+      it "returns false when state file does not exist" do
+        expect(state.blocked?).to be_falsey
+      end
+    end
+
+    describe "#blocked_reason" do
+      it "returns notes field when available" do
+        state.save_state(status: "blocked", notes: "CI failing")
+
+        expect(state.blocked_reason).to eq("CI failing")
+      end
+
+      it "returns blocked_reason field when notes not available" do
+        state.save_state(status: "blocked", blocked_reason: "Tests failing")
+
+        expect(state.blocked_reason).to eq("Tests failing")
+      end
+
+      it "prefers notes over blocked_reason" do
+        state.save_state(status: "blocked", notes: "Primary reason", blocked_reason: "Fallback")
+
+        expect(state.blocked_reason).to eq("Primary reason")
+      end
+
+      it "returns default message when no reason provided" do
+        state.save_state(status: "blocked")
+
+        expect(state.blocked_reason).to eq("No reason provided")
+      end
+
+      it "returns nil when state does not exist" do
+        expect(state.blocked_reason).to be_nil
+      end
     end
   end
 end
