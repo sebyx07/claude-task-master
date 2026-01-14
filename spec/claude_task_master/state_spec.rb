@@ -140,7 +140,7 @@ RSpec.describe ClaudeTaskMaster::State, :temp_dir do
       end
 
       it "returns nil when file does not exist" do
-        expect(state.plan).to be_nil if !File.exist?(File.join(state.dir, "plan.md"))
+        expect(state.plan).to be_nil unless File.exist?(File.join(state.dir, "plan.md"))
       end
     end
 

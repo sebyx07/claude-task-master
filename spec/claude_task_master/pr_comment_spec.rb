@@ -27,7 +27,7 @@ RSpec.describe ClaudeTaskMaster::PRComment do
       expect(comment.created_at).to eq("2026-01-14T10:00:00Z")
       expect(comment.updated_at).to eq("2026-01-14T11:00:00Z")
       expect(comment.html_url).to eq("https://github.com/user/repo/pull/1#discussion_r123")
-      # Note: Due to || operator, resolved: false becomes nil
+      # NOTE: Due to || operator, resolved: false becomes nil
       expect(comment.resolved).to be_nil
     end
 
@@ -457,7 +457,7 @@ RSpec.describe ClaudeTaskMaster::PRComment do
     end
 
     describe "#unresolved?" do
-      # Note: Due to || operator in initialize, passing resolved: false
+      # NOTE: Due to || operator in initialize, passing resolved: false
       # results in @resolved being nil, not false. This is a behavior quirk.
       it "returns false when resolved is not explicitly false" do
         comment = described_class.new(resolved: nil)
