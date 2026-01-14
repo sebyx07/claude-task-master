@@ -438,6 +438,137 @@ RSpec.describe ClaudeTaskMaster::State, :temp_dir do
     end
   end
 
+  describe "#build_context" do
+    before do
+      FileUtils.mkdir_p(state.dir)
+    end
+
+    it "builds complete context string with all sections" do
+      File.write(File.join(state.dir, "goal.txt"), "Build a REST API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      File.write(File.join(state.dir, "plan.md"), "# Plan\n- Task 1\n- Task 2")
+      File.write(File.join(state.dir, "context.md"), "# Context\nLearned X")
+      File.write(File.join(state.dir, "progress.md"), "# Progress\nDone Y")
+      state.save_state(
+        status: "working",
+        current_task: "Task 1",
+        pr_number: 42,
+        session_count: 5
+      )
+
+      context = state.build_context
+
+      expect(context).to include("# Current State")
+      expect(context).to include("## Goal")
+      expect(context).to include("Build a REST API")
+      expect(context).to include("## Success Criteria")
+      expect(context).to include("Tests pass")
+      expect(context).to include("## Status")
+      expect(context).to include("Phase: working")
+      expect(context).to include("Current task: Task 1")
+      expect(context).to include("PR: #42")
+      expect(context).to include("Session: 5")
+      expect(context).to include("## Plan")
+      expect(context).to include("- Task 1")
+      expect(context).to include("## Context from Previous Sessions")
+      expect(context).to include("Learned X")
+      expect(context).to include("## Recent Progress")
+      expect(context).to include("Done Y")
+    end
+
+    it "handles missing goal file" do
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("## Goal")
+      expect(context).not_to include("Build")
+    end
+
+    it "handles missing criteria file" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("## Success Criteria")
+      expect(context).not_to include("Tests")
+    end
+
+    it "shows placeholder when no plan exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "planning")
+
+      context = state.build_context
+
+      expect(context).to include("_No plan yet. Generate one first._")
+    end
+
+    it "shows placeholder when no context exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("_No context yet._")
+    end
+
+    it "shows placeholder when no progress exists" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working")
+
+      context = state.build_context
+
+      expect(context).to include("_No progress yet._")
+    end
+
+    it "handles missing state file" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+
+      context = state.build_context
+
+      expect(context).to include("Phase: unknown")
+      expect(context).to include("Current task: none")
+      expect(context).to include("PR: none")
+      expect(context).to include("Session: 0")
+    end
+
+    it "shows 'none' when no PR number" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working", pr_number: nil)
+
+      context = state.build_context
+
+      expect(context).to include("PR: none")
+    end
+
+    it "formats PR number with hash" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "working", pr_number: 123)
+
+      context = state.build_context
+
+      expect(context).to include("PR: #123")
+    end
+
+    it "handles nil current_task" do
+      File.write(File.join(state.dir, "goal.txt"), "Build API")
+      File.write(File.join(state.dir, "criteria.txt"), "Tests pass")
+      state.save_state(status: "planning", current_task: nil)
+
+      context = state.build_context
+
+      expect(context).to include("Current task: none")
+    end
+  end
+
   describe "status checks" do
     before do
       FileUtils.mkdir_p(state.dir)
