@@ -64,6 +64,17 @@ claude-task-master plan
 claude-task-master logs
 claude-task-master logs --last 3
 claude-task-master logs --session 5
+
+# View context/progress
+claude-task-master context
+claude-task-master progress
+
+# Clean up and start fresh
+claude-task-master clean
+claude-task-master clean -f  # skip confirmation
+
+# Check prerequisites
+claude-task-master doctor
 ```
 
 ## Options
@@ -74,6 +85,22 @@ claude-task-master start "goal" --model opus
 
 # Provide criteria inline
 claude-task-master start "goal" --criteria "tests pass, deploys to staging"
+
+# Don't auto-merge PRs (require manual review and merge)
+claude-task-master start "goal" --no-merge
+
+# Limit number of work sessions
+claude-task-master start "goal" --max-sessions 10
+claude-task-master resume -m 5  # shorthand
+
+# Pause after creating each PR for review
+claude-task-master start "goal" --pause-on-pr
+
+# Verbose output
+claude-task-master start "goal" --verbose
+
+# Combine options
+claude-task-master start "goal" --no-merge --max-sessions 20 --model opus
 ```
 
 ## State Directory

@@ -2,6 +2,7 @@
 
 require 'thor'
 require 'pastel'
+require 'fileutils'
 
 module ClaudeTaskMaster
   class CLI < Thor
@@ -254,6 +255,67 @@ module ClaudeTaskMaster
       else
         puts pastel.red.bold("Some prerequisites missing. Fix them before running.")
         exit 1
+      end
+    end
+
+    desc 'clean', 'Remove state directory and start fresh'
+    option :force, type: :boolean, aliases: '-f', default: false, desc: 'Skip confirmation'
+    def clean
+      state = State.new
+      pastel = Pastel.new
+
+      unless state.exists?
+        puts pastel.yellow("No state directory to clean.")
+        return
+      end
+
+      unless options[:force]
+        puts pastel.yellow("This will delete .claude-task-master/ and all session data.")
+        print "Are you sure? (y/N) "
+        response = $stdin.gets.chomp.downcase
+        unless response == 'y' || response == 'yes'
+          puts "Aborted."
+          return
+        end
+      end
+
+      FileUtils.rm_rf(state.dir)
+      puts pastel.green("Cleaned up .claude-task-master/")
+    end
+
+    desc 'context', 'Show or edit the context file'
+    def context
+      state = State.new
+      pastel = Pastel.new
+
+      unless state.exists?
+        puts pastel.yellow("No active task.")
+        return
+      end
+
+      context_path = File.join(state.dir, 'context.md')
+      if File.exist?(context_path)
+        puts File.read(context_path)
+      else
+        puts pastel.dim("No context file yet.")
+      end
+    end
+
+    desc 'progress', 'Show the progress log'
+    def progress
+      state = State.new
+      pastel = Pastel.new
+
+      unless state.exists?
+        puts pastel.yellow("No active task.")
+        return
+      end
+
+      progress_path = File.join(state.dir, 'progress.md')
+      if File.exist?(progress_path)
+        puts File.read(progress_path)
+      else
+        puts pastel.dim("No progress log yet.")
       end
     end
 
