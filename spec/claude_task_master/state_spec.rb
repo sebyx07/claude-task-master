@@ -235,61 +235,86 @@ RSpec.describe ClaudeTaskMaster::State, :temp_dir do
   end
 
   describe "#log_session" do
+    let(:run_id) { "20260114120000" }
+
     before do
-      FileUtils.mkdir_p(File.join(state.dir, "logs"))
+      state.init(goal: "Test goal", criteria: "Test criteria")
+      # Set a predictable started_at timestamp
+      state_data = state.load_state
+      state_data[:started_at] = "2026-01-14T12:00:00-05:00"
+      state.save_state(state_data)
     end
 
-    it "creates session log with formatted number" do
+    it "creates session log with run timestamp and session number" do
       state.log_session(1, "Session 1 content")
 
-      expect(File.read(File.join(state.dir, "logs", "session-001.md"))).to eq("Session 1 content")
+      expect(File.read(File.join(state.dir, "logs", "run-#{run_id}-session-001.md"))).to eq("Session 1 content")
     end
 
     it "formats session number with leading zeros" do
       state.log_session(42, "Session 42 content")
 
-      expect(File.exist?(File.join(state.dir, "logs", "session-042.md"))).to be true
+      expect(File.exist?(File.join(state.dir, "logs", "run-#{run_id}-session-042.md"))).to be true
     end
 
     it "handles large session numbers" do
       state.log_session(999, "Session 999 content")
 
-      expect(File.exist?(File.join(state.dir, "logs", "session-999.md"))).to be true
+      expect(File.exist?(File.join(state.dir, "logs", "run-#{run_id}-session-999.md"))).to be true
     end
 
-    it "overwrites existing session log" do
-      File.write(File.join(state.dir, "logs", "session-001.md"), "Old content")
+    it "overwrites existing session log for same run" do
+      log_file = File.join(state.dir, "logs", "run-#{run_id}-session-001.md")
+      File.write(log_file, "Old content")
       state.log_session(1, "New content")
 
-      expect(File.read(File.join(state.dir, "logs", "session-001.md"))).to eq("New content")
+      expect(File.read(log_file)).to eq("New content")
+    end
+
+    it "preserves logs from different runs" do
+      old_run_log = File.join(state.dir, "logs", "run-20260113120000-session-001.md")
+      File.write(old_run_log, "Old run content")
+      state.log_session(1, "New run content")
+
+      expect(File.exist?(old_run_log)).to be true
+      expect(File.read(old_run_log)).to eq("Old run content")
     end
   end
 
   describe "#next_session_number" do
+    let(:run_id) { "20260114120000" }
+
     before do
-      FileUtils.mkdir_p(File.join(state.dir, "logs"))
+      state.init(goal: "Test goal", criteria: "Test criteria")
+      # Set a predictable started_at timestamp
+      state_data = state.load_state
+      state_data[:started_at] = "2026-01-14T12:00:00-05:00"
+      state.save_state(state_data)
     end
 
     it "returns 1 when no sessions exist" do
       expect(state.next_session_number).to eq(1)
     end
 
-    it "returns next number based on existing sessions" do
-      File.write(File.join(state.dir, "logs", "session-001.md"), "content")
-      File.write(File.join(state.dir, "logs", "session-002.md"), "content")
+    it "returns next number based on existing sessions for current run" do
+      File.write(File.join(state.dir, "logs", "run-#{run_id}-session-001.md"), "content")
+      File.write(File.join(state.dir, "logs", "run-#{run_id}-session-002.md"), "content")
 
       expect(state.next_session_number).to eq(3)
     end
 
-    it "counts all session files regardless of gaps" do
-      File.write(File.join(state.dir, "logs", "session-001.md"), "content")
-      File.write(File.join(state.dir, "logs", "session-005.md"), "content")
+    it "counts only current run's session files" do
+      # Sessions from current run
+      File.write(File.join(state.dir, "logs", "run-#{run_id}-session-001.md"), "content")
+      # Sessions from different run
+      File.write(File.join(state.dir, "logs", "run-20260113120000-session-001.md"), "content")
+      File.write(File.join(state.dir, "logs", "run-20260113120000-session-002.md"), "content")
 
-      expect(state.next_session_number).to eq(3) # Count is 2 files, so next is 3
+      expect(state.next_session_number).to eq(2)
     end
 
     it "ignores non-session files" do
-      File.write(File.join(state.dir, "logs", "session-001.md"), "content")
+      File.write(File.join(state.dir, "logs", "run-#{run_id}-session-001.md"), "content")
       File.write(File.join(state.dir, "logs", "other-file.txt"), "content")
 
       expect(state.next_session_number).to eq(2)

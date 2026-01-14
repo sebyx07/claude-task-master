@@ -42,11 +42,20 @@ module ClaudeTaskMaster
           Open3.popen2e(*cmd) do |stdin, stdout_err, wait_thr|
             stdin.close
 
-            # Stream output in real-time
+            # Stream output in real-time with progress feedback
+            last_progress = Time.now
             stdout_err.each_line do |line|
               output << line
-              # Minimal progress indicator
-              $stdout.print "." if line.include?("[Tool:")
+              # Show progress indicator
+              if line.include?("[Tool:")
+                $stdout.print "."
+                $stdout.flush
+              elsif Time.now - last_progress > 10
+                # Show heartbeat every 10 seconds during long operations
+                $stdout.print "."
+                $stdout.flush
+                last_progress = Time.now
+              end
             end
 
             exit_code = wait_thr.value.exitstatus

@@ -107,16 +107,39 @@ module ClaudeTaskMaster
       write_file(CONTEXT_FILE, "#{current}\n#{content}")
     end
 
-    # Log a session
+    # Log a session with timestamp-based filename
     def log_session(session_num, content)
-      filename = format("session-%03d.md", session_num)
+      # Ensure logs directory exists (may have been deleted during Claude's run)
+      FileUtils.mkdir_p(logs_dir) unless File.directory?(logs_dir)
+
+      # Use run timestamp + session number for unique, sortable log names
+      run_id = current_run_id
+      filename = "run-#{run_id}-session-#{format("%03d", session_num)}.md"
       File.write(File.join(logs_dir, filename), content)
+    rescue Errno::ENOENT => e
+      # State directory was completely removed - can't log
+      warn "[claude-task-master] Warning: Could not write session log: #{e.message}"
     end
 
-    # Get next session number
+    # Get next session number based on current run's logs
     def next_session_number
-      existing = Dir.glob(File.join(logs_dir, "session-*.md"))
+      run_id = current_run_id
+      return 1 unless run_id
+
+      # Count only logs from this run
+      existing = Dir.glob(File.join(logs_dir, "run-#{run_id}-session-*.md"))
       existing.empty? ? 1 : existing.size + 1
+    end
+
+    # Get current run identifier (YYYYMMDDHHMMSS format)
+    def current_run_id
+      state_data = load_state || {}
+      started_at = state_data[:started_at]
+      return Time.now.strftime("%Y%m%d%H%M%S") unless started_at
+
+      # Extract just the datetime part (ignore timezone)
+      # Format: "2026-01-14T12:00:00-05:00" -> "20260114120000"
+      started_at.gsub(/[^0-9]/, "")[0, 14]
     end
 
     # Check if success criteria met (Claude writes SUCCESS to state)

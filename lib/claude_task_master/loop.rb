@@ -87,7 +87,9 @@ module ClaudeTaskMaster
       session_num = state.next_session_number
       state.update_state(session_count: session_num)
 
+      print pastel.dim("  Analyzing codebase")
       success, output, _exit_code = claude.invoke(prompt)
+      puts # newline after progress dots
 
       # Log the session
       state.log_session(session_num, "# Planning Session\n\n#{output}")
@@ -144,9 +146,9 @@ module ClaudeTaskMaster
           puts
           puts pastel.green.bold("SUCCESS!")
           puts pastel.green("All tasks completed successfully.")
-          # Clean up state directory on success
-          FileUtils.rm_rf(state.dir)
-          puts pastel.dim("Cleaned up #{state.dir}")
+          # Clean up state files but keep logs
+          cleanup_state_files
+          puts pastel.dim("Cleaned up state files (logs preserved in #{state.dir}/logs)")
           break
         end
 
@@ -193,6 +195,15 @@ module ClaudeTaskMaster
       state.append_progress("\n_Paused at #{Time.now.iso8601}_\n")
     end
 
+    # Clean up state files but preserve logs
+    def cleanup_state_files
+      # Remove state files but keep logs directory
+      %w[goal.txt criteria.txt plan.md state.json progress.md context.md].each do |file|
+        path = File.join(state.dir, file)
+        FileUtils.rm_f(path)
+      end
+    end
+
     # Single work iteration
     def work_iteration
       current_state = state.load_state
@@ -202,6 +213,7 @@ module ClaudeTaskMaster
       show_pr_status(current_state[:pr_number]) if current_state[:pr_number]
 
       puts pastel.cyan("[Session #{session_num}] Working on: #{current_state[:current_task] || "next task"}")
+      print pastel.dim("  Claude working")
 
       # Build context and prompt
       context = state.build_context
@@ -213,6 +225,7 @@ module ClaudeTaskMaster
       # Invoke Claude
       start_time = Time.now
       success, output, _exit_code = claude.invoke(prompt)
+      puts # newline after progress dots
       duration = (Time.now - start_time).round(1)
 
       # Log the session

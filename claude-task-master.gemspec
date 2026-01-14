@@ -33,10 +33,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Runtime dependencies
-  spec.add_dependency "octokit", "~> 10.0"    # GitHub API client
-  spec.add_dependency "pastel", "~> 0.8"      # Terminal colors
-  spec.add_dependency "thor", "~> 1.3"        # CLI framework
-  spec.add_dependency "tty-spinner", "~> 0.9" # Progress indicators
+  spec.add_dependency "faraday-retry", "~> 2.2" # HTTP retry middleware for Octokit
+  spec.add_dependency "octokit", "~> 10.0"      # GitHub API client
+  spec.add_dependency "pastel", "~> 0.8"        # Terminal colors
+  spec.add_dependency "thor", "~> 1.3"          # CLI framework
+  spec.add_dependency "tty-spinner", "~> 0.9"   # Progress indicators
 
   # Development dependencies
   spec.add_development_dependency "rspec", "~> 3.12"
