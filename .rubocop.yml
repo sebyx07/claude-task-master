@@ -1,0 +1,152 @@
+# RuboCop configuration for claude-task-master
+# A production-grade Ruby gem for autonomous Claude Code orchestration
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.1
+  SuggestExtensions: false
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - 'bin/bundle'
+    - 'bin/rake'
+    - 'bin/rspec'
+
+# == Layout ==
+
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns:
+    - '\s*#'  # Allow long comment lines
+    - '^\s*raise\s'  # Allow long error messages
+
+Layout/EmptyLinesAroundAttributeAccessor:
+  Enabled: true
+
+Layout/SpaceAroundMethodCallOperator:
+  Enabled: true
+
+# == Metrics ==
+# CLI tools often have longer methods due to option handling and formatting
+
+Metrics/AbcSize:
+  Max: 25
+  Exclude:
+    - 'lib/claude_task_master/cli.rb'
+    - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
+
+Metrics/BlockLength:
+  Max: 25
+  Exclude:
+    - '*.gemspec'
+    - 'spec/**/*'
+    - 'lib/claude_task_master/cli.rb'  # Thor commands need longer blocks
+    - 'lib/claude_task_master/loop.rb' # Work loop needs longer blocks
+
+Metrics/ClassLength:
+  Max: 200
+  Exclude:
+    - 'lib/claude_task_master/cli.rb'
+    - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/github.rb'
+    - 'lib/claude_task_master/claude.rb'
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+  Exclude:
+    - 'lib/claude_task_master/cli.rb'
+    - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
+
+Metrics/MethodLength:
+  Max: 25
+  Exclude:
+    - 'lib/claude_task_master/cli.rb'
+    - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/claude.rb'  # Prompt builders need to be long
+    - 'lib/claude_task_master/github.rb'
+
+Metrics/PerceivedComplexity:
+  Max: 10
+  Exclude:
+    - 'lib/claude_task_master/cli.rb'
+    - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
+
+# == Naming ==
+
+Naming/PredicatePrefix:
+  # Allow has_, is_ prefixes for predicate methods
+  AllowedMethods:
+    - is_a?
+    - has_unresolved_comments?
+
+# == Style ==
+
+Style/Documentation:
+  # We'll add YARD docs in a separate PR
+  Enabled: false
+
+Style/StringLiterals:
+  # Prefer double quotes for consistency
+  EnforcedStyle: double_quotes
+  ConsistentQuotesInMultiline: true
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+Style/FrozenStringLiteralComment:
+  # All files already have frozen_string_literal: true
+  Enabled: true
+  EnforcedStyle: always
+
+Style/IfUnlessModifier:
+  # Single-line conditionals are ok for simple cases
+  Enabled: true
+
+Style/GuardClause:
+  # Guard clauses improve readability
+  Enabled: true
+
+Style/RescueModifier:
+  # Avoid inline rescue, prefer explicit blocks
+  Enabled: true
+
+Style/MultipleComparison:
+  # Use arrays for multiple comparisons
+  Enabled: true
+
+Style/RedundantCondition:
+  Enabled: true
+
+Style/RedundantInterpolation:
+  Enabled: true
+
+# Allow semantic predicates
+Style/DoubleNegation:
+  Enabled: false
+
+# == Lint ==
+
+Lint/UnusedMethodArgument:
+  # Allow unused args with underscore prefix
+  AllowUnusedKeywordArguments: true
+  IgnoreEmptyMethods: true
+
+Lint/UselessAssignment:
+  Enabled: true
+
+# == Gemspec ==
+
+Gemspec/OrderedDependencies:
+  # Keep dependencies alphabetically ordered
+  Enabled: true
+
+Gemspec/RequireMFA:
+  # Enable MFA for production gems
+  Enabled: true
+
+Gemspec/DevelopmentDependencies:
+  # We keep dev dependencies in gemspec for gem publication
+  Enabled: false

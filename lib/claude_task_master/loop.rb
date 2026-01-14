@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'pastel'
+require "pastel"
 
 module ClaudeTaskMaster
   # The main work loop
@@ -13,7 +13,7 @@ module ClaudeTaskMaster
     #   max_sessions: Stop after N sessions
     #   pause_on_pr: Pause after creating each PR for review
     #   verbose: Show verbose output
-    def initialize(state:, model: 'sonnet', **opts)
+    def initialize(state:, model: "sonnet", **opts)
       @state = state
       @claude = Claude.new(model:)
       @pastel = Pastel.new
@@ -29,7 +29,7 @@ module ClaudeTaskMaster
     # Run the full loop from start
     def run(goal:, criteria:)
       puts pastel.cyan("Starting claude-task-master...")
-      puts pastel.dim("Goal: #{goal[0..100]}#{'...' if goal.length > 100}")
+      puts pastel.dim("Goal: #{goal[0..100]}#{"..." if goal.length > 100}")
       show_options
       puts
 
@@ -45,21 +45,17 @@ module ClaudeTaskMaster
 
     # Resume from existing state
     def resume
-      unless state.exists?
-        raise ConfigError, 'No existing state found. Start fresh with a goal.'
-      end
+      raise ConfigError, "No existing state found. Start fresh with a goal." unless state.exists?
 
       current_state = state.load_state
       puts pastel.cyan("Resuming claude-task-master...")
-      puts pastel.dim("Goal: #{state.goal[0..100]}#{'...' if state.goal.length > 100}")
+      puts pastel.dim("Goal: #{state.goal[0..100]}#{"..." if state.goal.length > 100}")
       puts pastel.dim("Status: #{current_state[:status]}")
       puts pastel.dim("Session: #{current_state[:session_count]}")
       show_options
       puts
 
-      if current_state[:status] == 'planning'
-        plan_phase
-      end
+      plan_phase if current_state[:status] == "planning"
 
       work_loop
     end
@@ -69,13 +65,13 @@ module ClaudeTaskMaster
     # Display active options
     def show_options
       active = []
-      active << 'no-merge' if options[:no_merge]
+      active << "no-merge" if options[:no_merge]
       active << "max-sessions=#{options[:max_sessions]}" if options[:max_sessions]
-      active << 'pause-on-pr' if options[:pause_on_pr]
-      active << 'verbose' if options[:verbose]
+      active << "pause-on-pr" if options[:pause_on_pr]
+      active << "verbose" if options[:verbose]
       return if active.empty?
 
-      puts pastel.dim("Options: #{active.join(', ')}")
+      puts pastel.dim("Options: #{active.join(", ")}")
     end
 
     # Phase 1: Generate plan
@@ -83,7 +79,7 @@ module ClaudeTaskMaster
       puts pastel.yellow("Phase 1: Planning...")
 
       # Check for existing CLAUDE.md
-      claude_md_path = File.join(Dir.pwd, 'CLAUDE.md')
+      claude_md_path = File.join(Dir.pwd, "CLAUDE.md")
       existing_claude_md = File.exist?(claude_md_path) ? File.read(claude_md_path) : nil
 
       prompt = Claude.planning_prompt(state.goal, existing_claude_md:, no_merge: options[:no_merge])
@@ -97,15 +93,15 @@ module ClaudeTaskMaster
       state.log_session(session_num, "# Planning Session\n\n#{output}")
 
       unless success
-        state.update_state(status: 'blocked')
+        state.update_state(status: "blocked")
         state.append_progress("\n## Blocked in Planning\n\n#{output[-500..]}")
-        raise ClaudeError, 'Planning failed. Check logs.'
+        raise ClaudeError, "Planning failed. Check logs."
       end
 
       current = state.load_state
-      if current[:status] != 'ready'
+      if current[:status] != "ready"
         # Claude didn't update state, do it ourselves
-        state.update_state(status: 'ready')
+        state.update_state(status: "ready")
       end
 
       puts pastel.green("Plan created. Check .claude-task-master/plan.md")
@@ -118,20 +114,20 @@ module ClaudeTaskMaster
       unresolved = GitHub.unresolved_threads(pr_number)
 
       status_icon = case ci_status[:status]
-                    when :passing then pastel.green('CI passing')
-                    when :failing then pastel.red('CI failing')
-                    when :pending then pastel.yellow('CI pending')
-                    else pastel.dim('CI unknown')
+                    when :passing then pastel.green("CI passing")
+                    when :failing then pastel.red("CI failing")
+                    when :pending then pastel.yellow("CI pending")
+                    else pastel.dim("CI unknown")
                     end
 
       comments_text = if unresolved.empty?
-                        pastel.green('0 unresolved')
+                        pastel.green("0 unresolved")
                       else
                         pastel.yellow("#{unresolved.size} unresolved comments")
                       end
 
       puts pastel.dim("  PR ##{pr_number}: #{status_icon} | #{comments_text}")
-    rescue StandardError => e
+    rescue StandardError
       # Don't fail if we can't get PR status
       puts pastel.dim("  PR ##{pr_number}: (couldn't fetch status)")
     end
@@ -200,11 +196,9 @@ module ClaudeTaskMaster
       session_num = state.next_session_number
 
       # Show PR/CI status if we have a PR
-      if current_state[:pr_number]
-        show_pr_status(current_state[:pr_number])
-      end
+      show_pr_status(current_state[:pr_number]) if current_state[:pr_number]
 
-      puts pastel.cyan("[Session #{session_num}] Working on: #{current_state[:current_task] || 'next task'}")
+      puts pastel.cyan("[Session #{session_num}] Working on: #{current_state[:current_task] || "next task"}")
 
       # Build context and prompt
       context = state.build_context
@@ -244,9 +238,9 @@ module ClaudeTaskMaster
       if new_state[:current_task] != current_state[:current_task]
         puts pastel.dim("  Task changed: #{new_state[:current_task]}")
       end
-      if new_state[:pr_number] && new_state[:pr_number] != current_state[:pr_number]
-        puts pastel.dim("  PR created: ##{new_state[:pr_number]}")
-      end
+      return unless new_state[:pr_number] && new_state[:pr_number] != current_state[:pr_number]
+
+      puts pastel.dim("  PR created: ##{new_state[:pr_number]}")
     end
   end
 end

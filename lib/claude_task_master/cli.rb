@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'thor'
-require 'pastel'
-require 'fileutils'
+require "thor"
+require "pastel"
+require "fileutils"
 
 module ClaudeTaskMaster
   class CLI < Thor
@@ -10,7 +10,7 @@ module ClaudeTaskMaster
       true
     end
 
-    desc 'start GOAL', 'Start working on a new goal'
+    desc "start GOAL", "Start working on a new goal"
     long_desc <<~DESC
       Start claude-task-master with a new goal. Claude will:
 
@@ -24,12 +24,12 @@ module ClaudeTaskMaster
         claude-task-master start "fix all TypeScript errors"
         claude-task-master start "add dark mode to the UI"
     DESC
-    option :criteria, type: :string, aliases: '-c', desc: 'Success criteria (will prompt if not provided)'
-    option :model, type: :string, default: 'sonnet', desc: 'Claude model to use (sonnet, opus, haiku)'
-    option :no_merge, type: :boolean, default: false, desc: 'Do not auto-merge PRs (require manual merge)'
-    option :max_sessions, type: :numeric, aliases: '-m', desc: 'Maximum number of sessions before stopping'
-    option :pause_on_pr, type: :boolean, default: false, desc: 'Pause after creating each PR for review'
-    option :verbose, type: :boolean, aliases: '-v', default: false, desc: 'Show verbose output'
+    option :criteria, type: :string, aliases: "-c", desc: "Success criteria (will prompt if not provided)"
+    option :model, type: :string, default: "sonnet", desc: "Claude model to use (sonnet, opus, haiku)"
+    option :no_merge, type: :boolean, default: false, desc: "Do not auto-merge PRs (require manual merge)"
+    option :max_sessions, type: :numeric, aliases: "-m", desc: "Maximum number of sessions before stopping"
+    option :pause_on_pr, type: :boolean, default: false, desc: "Pause after creating each PR for review"
+    option :verbose, type: :boolean, aliases: "-v", default: false, desc: "Show verbose output"
     def start(goal)
       check_prerequisites!
 
@@ -46,7 +46,7 @@ module ClaudeTaskMaster
       loop.run(goal:, criteria:)
     end
 
-    desc 'resume', 'Resume previous work'
+    desc "resume", "Resume previous work"
     long_desc <<~DESC
       Resume working from where you left off. State is loaded from
       .claude-task-master/ directory.
@@ -56,11 +56,11 @@ module ClaudeTaskMaster
       - Restarting your terminal
       - Coming back the next day
     DESC
-    option :model, type: :string, default: 'sonnet', desc: 'Claude model to use'
-    option :no_merge, type: :boolean, default: false, desc: 'Do not auto-merge PRs'
-    option :max_sessions, type: :numeric, aliases: '-m', desc: 'Maximum sessions before stopping'
-    option :pause_on_pr, type: :boolean, default: false, desc: 'Pause after creating each PR'
-    option :verbose, type: :boolean, aliases: '-v', default: false, desc: 'Show verbose output'
+    option :model, type: :string, default: "sonnet", desc: "Claude model to use"
+    option :no_merge, type: :boolean, default: false, desc: "Do not auto-merge PRs"
+    option :max_sessions, type: :numeric, aliases: "-m", desc: "Maximum sessions before stopping"
+    option :pause_on_pr, type: :boolean, default: false, desc: "Pause after creating each PR"
+    option :verbose, type: :boolean, aliases: "-v", default: false, desc: "Show verbose output"
     def resume
       check_prerequisites!
 
@@ -82,7 +82,7 @@ module ClaudeTaskMaster
       loop.resume
     end
 
-    desc 'status', 'Show current status'
+    desc "status", "Show current status"
     def status
       state = State.new
       pastel = Pastel.new
@@ -100,8 +100,8 @@ module ClaudeTaskMaster
       puts "Criteria: #{state.criteria}"
       puts
       puts "Status: #{status_color(current[:status], pastel)}"
-      puts "Current task: #{current[:current_task] || 'none'}"
-      puts "PR: #{current[:pr_number] ? "##{current[:pr_number]}" : 'none'}"
+      puts "Current task: #{current[:current_task] || "none"}"
+      puts "PR: #{current[:pr_number] ? "##{current[:pr_number]}" : "none"}"
       puts "Sessions: #{current[:session_count]}"
       puts "Started: #{current[:started_at]}"
       puts "Updated: #{current[:updated_at]}"
@@ -109,7 +109,7 @@ module ClaudeTaskMaster
       puts "State dir: #{state.dir}"
     end
 
-    desc 'plan', 'Show the current plan'
+    desc "plan", "Show the current plan"
     def plan
       state = State.new
       pastel = Pastel.new
@@ -120,16 +120,12 @@ module ClaudeTaskMaster
       end
 
       plan_content = state.plan
-      if plan_content
-        puts plan_content
-      else
-        puts pastel.yellow("No plan yet. Run 'claude-task-master resume' to generate one.")
-      end
+      puts plan_content || pastel.yellow("No plan yet. Run 'claude-task-master resume' to generate one.")
     end
 
-    desc 'logs', 'Show session logs'
-    option :session, type: :numeric, aliases: '-s', desc: 'Specific session number'
-    option :last, type: :numeric, aliases: '-l', default: 1, desc: 'Show last N sessions'
+    desc "logs", "Show session logs"
+    option :session, type: :numeric, aliases: "-s", desc: "Specific session number"
+    option :last, type: :numeric, aliases: "-l", default: 1, desc: "Show last N sessions"
     def logs
       state = State.new
       pastel = Pastel.new
@@ -139,11 +135,11 @@ module ClaudeTaskMaster
         return
       end
 
-      logs_dir = File.join(state.dir, 'logs')
-      log_files = Dir.glob(File.join(logs_dir, 'session-*.md')).sort
+      logs_dir = File.join(state.dir, "logs")
+      log_files = Dir.glob(File.join(logs_dir, "session-*.md"))
 
       if options[:session]
-        filename = format('session-%03d.md', options[:session])
+        filename = format("session-%03d.md", options[:session])
         path = File.join(logs_dir, filename)
         if File.exist?(path)
           puts File.read(path)
@@ -159,12 +155,12 @@ module ClaudeTaskMaster
       end
     end
 
-    desc 'version', 'Show version'
+    desc "version", "Show version"
     def version
       puts "claude-task-master #{VERSION}"
     end
 
-    desc 'doctor', 'Check prerequisites and system health'
+    desc "doctor", "Check prerequisites and system health"
     def doctor
       pastel = Pastel.new
       all_good = true
@@ -176,7 +172,7 @@ module ClaudeTaskMaster
       print "Claude CLI: "
       if Claude.available?
         version = Claude.version
-        puts pastel.green("#{version}")
+        puts pastel.green(version.to_s)
       else
         puts pastel.red("NOT FOUND")
         puts pastel.dim("  Install: npm install -g @anthropic-ai/claude-code")
@@ -185,7 +181,11 @@ module ClaudeTaskMaster
 
       # Check gh CLI
       print "GitHub CLI: "
-      gh_version = `gh --version 2>&1`.split("\n").first rescue nil
+      gh_version = begin
+        `gh --version 2>&1`.split("\n").first
+      rescue StandardError
+        nil
+      end
       if gh_version
         puts pastel.green(gh_version)
       else
@@ -206,7 +206,11 @@ module ClaudeTaskMaster
 
       # Check git
       print "Git: "
-      git_version = `git --version 2>&1`.strip rescue nil
+      git_version = begin
+        `git --version 2>&1`.strip
+      rescue StandardError
+        nil
+      end
       if git_version
         puts pastel.green(git_version)
       else
@@ -216,24 +220,24 @@ module ClaudeTaskMaster
 
       # Check Ruby version
       print "Ruby: "
-      if RUBY_VERSION >= '3.1.0'
-        puts pastel.green("#{RUBY_VERSION}")
+      if RUBY_VERSION >= "3.1.0"
+        puts pastel.green(RUBY_VERSION.to_s)
       else
         puts pastel.yellow("#{RUBY_VERSION} (recommend 3.1+)")
       end
 
       # Check current repo
       print "Git repo: "
-      if system('git rev-parse --git-dir > /dev/null 2>&1')
+      if system("git rev-parse --git-dir > /dev/null 2>&1")
         repo = GitHub.current_repo
-        puts pastel.green(repo || 'local repo')
+        puts pastel.green(repo || "local repo")
       else
         puts pastel.yellow("not in a git repository")
       end
 
       # Check for CLAUDE.md
       print "CLAUDE.md: "
-      if File.exist?('CLAUDE.md')
+      if File.exist?("CLAUDE.md")
         puts pastel.green("present")
       else
         puts pastel.dim("not found (optional)")
@@ -258,8 +262,8 @@ module ClaudeTaskMaster
       end
     end
 
-    desc 'clean', 'Remove state directory and start fresh'
-    option :force, type: :boolean, aliases: '-f', default: false, desc: 'Skip confirmation'
+    desc "clean", "Remove state directory and start fresh"
+    option :force, type: :boolean, aliases: "-f", default: false, desc: "Skip confirmation"
     def clean
       state = State.new
       pastel = Pastel.new
@@ -273,7 +277,7 @@ module ClaudeTaskMaster
         puts pastel.yellow("This will delete .claude-task-master/ and all session data.")
         print "Are you sure? (y/N) "
         response = $stdin.gets.chomp.downcase
-        unless response == 'y' || response == 'yes'
+        unless %w[y yes].include?(response)
           puts "Aborted."
           return
         end
@@ -283,7 +287,7 @@ module ClaudeTaskMaster
       puts pastel.green("Cleaned up .claude-task-master/")
     end
 
-    desc 'context', 'Show or edit the context file'
+    desc "context", "Show or edit the context file"
     def context
       state = State.new
       pastel = Pastel.new
@@ -293,7 +297,7 @@ module ClaudeTaskMaster
         return
       end
 
-      context_path = File.join(state.dir, 'context.md')
+      context_path = File.join(state.dir, "context.md")
       if File.exist?(context_path)
         puts File.read(context_path)
       else
@@ -301,7 +305,7 @@ module ClaudeTaskMaster
       end
     end
 
-    desc 'progress', 'Show the progress log'
+    desc "progress", "Show the progress log"
     def progress
       state = State.new
       pastel = Pastel.new
@@ -311,7 +315,7 @@ module ClaudeTaskMaster
         return
       end
 
-      progress_path = File.join(state.dir, 'progress.md')
+      progress_path = File.join(state.dir, "progress.md")
       if File.exist?(progress_path)
         puts File.read(progress_path)
       else
@@ -319,9 +323,9 @@ module ClaudeTaskMaster
       end
     end
 
-    desc 'comments [PR_NUMBER]', 'Show PR review comments'
-    option :actionable, type: :boolean, aliases: '-a', default: false, desc: 'Show only actionable comments'
-    option :unresolved, type: :boolean, aliases: '-u', default: false, desc: 'Show only unresolved threads'
+    desc "comments [PR_NUMBER]", "Show PR review comments"
+    option :actionable, type: :boolean, aliases: "-a", default: false, desc: "Show only actionable comments"
+    option :unresolved, type: :boolean, aliases: "-u", default: false, desc: "Show only unresolved threads"
     def comments(pr_number = nil)
       state = State.new
       pastel = Pastel.new
@@ -351,7 +355,8 @@ module ClaudeTaskMaster
             puts
             puts pastel.dim("  Author: #{thread[:author]}")
             puts pastel.dim("  File: #{thread[:file_path]}:#{thread[:line]}")
-            puts "  #{thread[:body]&.lines&.first&.strip}"
+            first_line = thread[:body]&.lines&.first
+            puts "  #{first_line&.strip}" if first_line
           end
         end
       else
@@ -365,7 +370,8 @@ module ClaudeTaskMaster
             puts severity_badge(comment.severity, pastel)
             puts pastel.dim("  #{comment.file_path}:#{comment.line_range}")
             puts pastel.dim("  Author: #{comment.author}")
-            puts "  #{comment.summary || comment.body&.lines&.first&.strip}"
+            first_line = comment.body&.lines&.first
+            puts "  #{comment.summary || first_line&.strip}"
             puts pastel.dim("  #{comment.html_url}")
             puts
           end
@@ -375,9 +381,9 @@ module ClaudeTaskMaster
       puts pastel.red("Error fetching comments: #{e.message}")
     end
 
-    desc 'pr [SUBCOMMAND]', 'PR management commands'
-    option :number, type: :numeric, aliases: '-n', desc: 'PR number (uses current if not specified)'
-    def pr(subcommand = 'status')
+    desc "pr [SUBCOMMAND]", "PR management commands"
+    option :number, type: :numeric, aliases: "-n", desc: "PR number (uses current if not specified)"
+    def pr(subcommand = "status")
       state = State.new
       pastel = Pastel.new
 
@@ -393,11 +399,11 @@ module ClaudeTaskMaster
       end
 
       case subcommand
-      when 'status', 'info'
+      when "status", "info"
         show_pr_info(pr_number, pastel)
-      when 'checks', 'ci'
+      when "checks", "ci"
         show_pr_checks(pr_number, pastel)
-      when 'merge'
+      when "merge"
         merge_current_pr(pr_number, pastel)
       else
         puts pastel.yellow("Unknown subcommand: #{subcommand}")
@@ -408,7 +414,7 @@ module ClaudeTaskMaster
     # Default command (no args = resume or show help)
     default_task :default_action
 
-    desc 'default_action', 'Default action', hide: true
+    desc "default_action", "Default action", hide: true
     def default_action
       state = State.new
       if state.exists?
@@ -429,10 +435,10 @@ module ClaudeTaskMaster
         exit 1
       end
 
-      unless GitHub.available?
-        puts pastel.yellow("Warning: gh CLI not authenticated. PR features won't work.")
-        puts "  Run: gh auth login"
-      end
+      return if GitHub.available?
+
+      puts pastel.yellow("Warning: gh CLI not authenticated. PR features won't work.")
+      puts "  Run: gh auth login"
     end
 
     def prompt_for_criteria
@@ -445,13 +451,13 @@ module ClaudeTaskMaster
 
     def status_color(status, pastel)
       case status
-      when 'success'
+      when "success"
         pastel.green(status)
-      when 'blocked'
+      when "blocked"
         pastel.red(status)
-      when 'ready', 'working'
+      when "ready", "working"
         pastel.cyan(status)
-      when 'planning'
+      when "planning"
         pastel.yellow(status)
       else
         status
@@ -460,19 +466,19 @@ module ClaudeTaskMaster
 
     def severity_badge(severity, pastel)
       case severity
-      when 'critical'
+      when "critical"
         pastel.red.bold("[CRITICAL]")
-      when 'warning'
+      when "warning"
         pastel.yellow.bold("[WARNING]")
-      when 'major'
+      when "major"
         pastel.magenta.bold("[MAJOR]")
-      when 'trivial'
+      when "trivial"
         pastel.dim("[trivial]")
-      when 'nitpick'
+      when "nitpick"
         pastel.dim("[nitpick]")
-      when 'refactor'
+      when "refactor"
         pastel.blue("[refactor]")
-      when 'suggestion'
+      when "suggestion"
         pastel.cyan("[suggestion]")
       else
         pastel.dim("[info]")
@@ -502,10 +508,10 @@ module ClaudeTaskMaster
 
       status[:checks].each do |check|
         icon = case check[:conclusion] || check[:bucket]
-               when 'success', 'pass' then pastel.green('✓')
-               when 'failure', 'fail' then pastel.red('✗')
-               when 'pending' then pastel.yellow('○')
-               else pastel.dim('?')
+               when "success", "pass" then pastel.green("✓")
+               when "failure", "fail" then pastel.red("✗")
+               when "pending" then pastel.yellow("○")
+               else pastel.dim("?")
                end
         puts "  #{icon} #{check[:name]}"
       end
@@ -524,13 +530,13 @@ module ClaudeTaskMaster
     def ci_status_color(status, pastel)
       case status
       when :passing
-        pastel.green('PASSING')
+        pastel.green("PASSING")
       when :failing
-        pastel.red('FAILING')
+        pastel.red("FAILING")
       when :pending
-        pastel.yellow('PENDING')
+        pastel.yellow("PENDING")
       else
-        pastel.dim('UNKNOWN')
+        pastel.dim("UNKNOWN")
       end
     end
   end

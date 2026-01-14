@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require 'open3'
-require 'json'
-require 'octokit'
+require "open3"
+require "json"
+require "octokit"
 
 module ClaudeTaskMaster
   # GitHub operations via gh CLI and Octokit
@@ -11,7 +11,7 @@ module ClaudeTaskMaster
     class << self
       # Check if gh CLI is available and authenticated
       def available?
-        _, status = Open3.capture2('gh auth status')
+        _, status = Open3.capture2("gh auth status")
         status.success?
       end
 
@@ -19,7 +19,7 @@ module ClaudeTaskMaster
       def client
         @client ||= begin
           token = gh_token
-          raise ConfigError, 'GitHub token not found. Run: gh auth login' unless token
+          raise ConfigError, "GitHub token not found. Run: gh auth login" unless token
 
           Octokit::Client.new(access_token: token, auto_paginate: true)
         end
@@ -33,19 +33,17 @@ module ClaudeTaskMaster
       # Get current repository (owner/repo format)
       def current_repo
         @current_repo ||= begin
-          stdout, status = Open3.capture2('gh repo view --json nameWithOwner -q .nameWithOwner')
-          return nil unless status.success?
-
-          stdout.strip
+          stdout, status = Open3.capture2("gh repo view --json nameWithOwner -q .nameWithOwner")
+          status.success? ? stdout.strip : nil
         end
       end
 
       # Create a PR
       # Returns [success, pr_number_or_error]
-      def create_pr(title:, body:, base: 'main', head: nil)
+      def create_pr(title:, body:, base: "main", head: nil)
         head ||= current_branch
         repo = current_repo
-        return [false, 'Not in a git repository'] unless repo
+        return [false, "Not in a git repository"] unless repo
 
         pr = client.create_pull_request(repo, base, head, title, body)
         [true, pr.number]
@@ -95,7 +93,7 @@ module ClaudeTaskMaster
         repo = current_repo
         return [] unless repo
 
-        owner, name = repo.split('/')
+        owner, name = repo.split("/")
 
         query = <<~GRAPHQL
           query {
@@ -120,7 +118,7 @@ module ClaudeTaskMaster
           }
         GRAPHQL
 
-        response = client.post('/graphql', { query: query }.to_json)
+        response = client.post("/graphql", { query: query }.to_json)
         threads = response.dig(:data, :repository, :pullRequest, :reviewThreads, :nodes) || []
 
         threads.reject { |t| t[:isResolved] }.map do |thread|
@@ -133,7 +131,7 @@ module ClaudeTaskMaster
             line: first_comment&.dig(:line)
           }
         end
-      rescue Octokit::Error, StandardError => e
+      rescue Octokit::Error, StandardError
         # Fallback to gh CLI
         gh_unresolved_threads(pr_number)
       end
@@ -161,12 +159,12 @@ module ClaudeTaskMaster
           }
         GRAPHQL
 
-        response = client.post('/graphql', { query: mutation }.to_json)
+        response = client.post("/graphql", { query: mutation }.to_json)
         errors = response[:errors]
 
         return true unless errors
 
-        raise GitHubError, errors.map { |e| e[:message] }.join(', ')
+        raise GitHubError, errors.map { |e| e[:message] }.join(", ")
       end
 
       # Reply to a PR comment
@@ -183,7 +181,7 @@ module ClaudeTaskMaster
 
       # Wait for CI to complete (blocking)
       def wait_for_ci(pr_number, timeout: 600)
-        cmd = ['gh', 'pr', 'checks', pr_number.to_s, '--watch', '--fail-fast']
+        cmd = ["gh", "pr", "checks", pr_number.to_s, "--watch", "--fail-fast"]
 
         Timeout.timeout(timeout) do
           _, status = Open3.capture2(*cmd)
@@ -198,7 +196,7 @@ module ClaudeTaskMaster
         repo = current_repo
         return false unless repo
 
-        client.merge_pull_request(repo, pr_number, '', merge_method: method)
+        client.merge_pull_request(repo, pr_number, "", merge_method: method)
         client.delete_branch(repo, pr_branch_name(pr_number)) if delete_branch
         true
       rescue Octokit::Error => e
@@ -231,7 +229,7 @@ module ClaudeTaskMaster
         repo = current_repo
         return [] unless repo
 
-        client.pull_requests(repo, state: 'open').map do |pr|
+        client.pull_requests(repo, state: "open").map do |pr|
           {
             number: pr.number,
             title: pr.title,
@@ -246,7 +244,7 @@ module ClaudeTaskMaster
 
       # Get GitHub token from gh CLI
       def gh_token
-        stdout, status = Open3.capture2('gh auth token')
+        stdout, status = Open3.capture2("gh auth token")
         return nil unless status.success?
 
         stdout.strip
@@ -254,7 +252,7 @@ module ClaudeTaskMaster
 
       # Get current git branch
       def current_branch
-        stdout, status = Open3.capture2('git rev-parse --abbrev-ref HEAD')
+        stdout, status = Open3.capture2("git rev-parse --abbrev-ref HEAD")
         return nil unless status.success?
 
         stdout.strip
@@ -272,9 +270,9 @@ module ClaudeTaskMaster
       def determine_ci_status(checks)
         return :unknown if checks.empty?
 
-        if checks.any? { |c| c[:conclusion] == 'failure' }
+        if checks.any? { |c| c[:conclusion] == "failure" }
           :failing
-        elsif checks.any? { |c| c[:status] != 'completed' }
+        elsif checks.any? { |c| c[:status] != "completed" }
           :pending
         else
           :passing
@@ -283,16 +281,16 @@ module ClaudeTaskMaster
 
       # Fallback: Get PR status via gh CLI
       def gh_pr_status(pr_number)
-        cmd = ['gh', 'pr', 'checks', pr_number.to_s, '--json', 'name,state,bucket']
+        cmd = ["gh", "pr", "checks", pr_number.to_s, "--json", "name,state,bucket"]
         stdout, status = Open3.capture2(*cmd)
 
         return { status: :unknown, checks: [] } unless status.success?
 
         checks = JSON.parse(stdout, symbolize_names: true)
 
-        overall = if checks.any? { |c| c[:bucket] == 'fail' }
+        overall = if checks.any? { |c| c[:bucket] == "fail" }
                     :failing
-                  elsif checks.any? { |c| c[:bucket] == 'pending' }
+                  elsif checks.any? { |c| c[:bucket] == "pending" }
                     :pending
                   else
                     :passing
@@ -306,7 +304,7 @@ module ClaudeTaskMaster
         repo = current_repo
         return [] unless repo
 
-        owner, name = repo.split('/')
+        owner, name = repo.split("/")
 
         query = <<~GRAPHQL
           query {
@@ -329,7 +327,7 @@ module ClaudeTaskMaster
           }
         GRAPHQL
 
-        stdout, status = Open3.capture2('gh', 'api', 'graphql', '-f', "query=#{query}")
+        stdout, status = Open3.capture2("gh", "api", "graphql", "-f", "query=#{query}")
         return [] unless status.success?
 
         response = JSON.parse(stdout, symbolize_names: true)

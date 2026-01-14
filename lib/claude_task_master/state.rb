@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'fileutils'
+require "json"
+require "fileutils"
 
 module ClaudeTaskMaster
   # Manages state persistence in .claude-task-master/
   # All state is file-based for easy inspection and resumption
   class State
-    GOAL_FILE = 'goal.txt'
-    CRITERIA_FILE = 'criteria.txt'
-    PLAN_FILE = 'plan.md'
-    STATE_FILE = 'state.json'
-    PROGRESS_FILE = 'progress.md'
-    CONTEXT_FILE = 'context.md'
-    LOGS_DIR = 'logs'
+    GOAL_FILE = "goal.txt"
+    CRITERIA_FILE = "criteria.txt"
+    PLAN_FILE = "plan.md"
+    STATE_FILE = "state.json"
+    PROGRESS_FILE = "progress.md"
+    CONTEXT_FILE = "context.md"
+    LOGS_DIR = "logs"
 
     attr_reader :dir
 
@@ -32,7 +32,7 @@ module ClaudeTaskMaster
       write_file(CONTEXT_FILE, "# Context\n\n_Learnings accumulated across sessions._\n\n")
 
       save_state(
-        status: 'planning',
+        status: "planning",
         current_task: nil,
         session_count: 0,
         pr_number: nil,
@@ -92,7 +92,7 @@ module ClaudeTaskMaster
 
     # Append to progress
     def append_progress(content)
-      current = progress || ''
+      current = progress || ""
       write_file(PROGRESS_FILE, "#{current}\n#{content}")
     end
 
@@ -103,26 +103,26 @@ module ClaudeTaskMaster
 
     # Append to context
     def append_context(content)
-      current = context || ''
+      current = context || ""
       write_file(CONTEXT_FILE, "#{current}\n#{content}")
     end
 
     # Log a session
     def log_session(session_num, content)
-      filename = format('session-%03d.md', session_num)
+      filename = format("session-%03d.md", session_num)
       File.write(File.join(logs_dir, filename), content)
     end
 
     # Get next session number
     def next_session_number
-      existing = Dir.glob(File.join(logs_dir, 'session-*.md'))
+      existing = Dir.glob(File.join(logs_dir, "session-*.md"))
       existing.empty? ? 1 : existing.size + 1
     end
 
     # Check if success criteria met (Claude writes SUCCESS to state)
     def success?
       state = load_state
-      state && state[:status] == 'success'
+      state && state[:status] == "success"
     end
 
     # Check if blocked
@@ -153,19 +153,19 @@ module ClaudeTaskMaster
         #{criteria}
 
         ## Status
-        - Phase: #{state[:status] || 'unknown'}
-        - Current task: #{state[:current_task] || 'none'}
-        - PR: #{state[:pr_number] ? "##{state[:pr_number]}" : 'none'}
+        - Phase: #{state[:status] || "unknown"}
+        - Current task: #{state[:current_task] || "none"}
+        - PR: #{state[:pr_number] ? "##{state[:pr_number]}" : "none"}
         - Session: #{state[:session_count] || 0}
 
         ## Plan
-        #{plan || '_No plan yet. Generate one first._'}
+        #{plan || "_No plan yet. Generate one first._"}
 
         ## Context from Previous Sessions
-        #{context || '_No context yet._'}
+        #{context || "_No context yet._"}
 
         ## Recent Progress
-        #{progress || '_No progress yet._'}
+        #{progress || "_No progress yet._"}
       CONTEXT
     end
 
