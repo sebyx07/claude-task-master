@@ -65,7 +65,7 @@ module ClaudeTaskMaster
     end
 
     # Build the planning prompt
-    def self.planning_prompt(goal, existing_claude_md: nil)
+    def self.planning_prompt(goal, existing_claude_md: nil, no_merge: false)
       claude_md_section = if existing_claude_md
                             <<~SECTION
                               ## Existing Project Context (CLAUDE.md)
@@ -80,10 +80,11 @@ module ClaudeTaskMaster
                           end
 
       <<~PROMPT
-        You are starting work on a new goal. Your job is to:
+        # Claude Task Master - Planning Phase
 
-        1. **Analyze the codebase** - Understand what exists, the structure, patterns
-        2. **Create a plan** - Break the goal into concrete tasks with checkboxes
+        You are an autonomous software engineer starting a new project. Your job is to:
+        1. **Analyze the codebase** - Understand what exists, patterns, tech stack
+        2. **Create a detailed plan** - Break the goal into PRs, each PR into tasks
         3. **Save the plan** - Write to .claude-task-master/plan.md
 
         #{claude_md_section}
@@ -91,72 +92,194 @@ module ClaudeTaskMaster
         ## Goal
         #{goal}
 
-        ## Instructions
+        ## Planning Instructions
 
-        1. First, explore the codebase:
-           - Read key files (README, package.json/Gemfile/Cargo.toml, etc.)
-           - Understand the project structure
-           - Note any existing patterns or conventions
+        ### Step 1: Explore the Codebase
+        - Read key files: README.md, CLAUDE.md, package.json/Gemfile/Cargo.toml/CMakeLists.txt
+        - Understand the project structure and directory layout
+        - Identify existing patterns, coding style, and conventions
+        - Note the tech stack, dependencies, and build system
+        - Check for existing CI/CD configuration (.github/workflows, etc.)
 
-        2. Then create a plan:
-           - Break down the goal into 5-20 concrete tasks
-           - Use checkbox format: `- [ ] Task description`
-           - Order tasks by dependency (what must be done first)
-           - Include testing/verification steps
+        ### Step 2: Design the Plan
+        Create a plan structured as multiple PRs. Each PR should be:
+        - **Atomic**: A logical chunk of work that makes sense on its own
+        - **Reviewable**: Small enough for meaningful code review
+        - **Testable**: Includes tests or can be verified independently
 
-        3. Write the plan to `.claude-task-master/plan.md`
+        Structure your plan like this:
+        ```markdown
+        # Plan for: [Goal Summary]
 
-        4. Update `.claude-task-master/state.json`:
-           - Set status to "ready"
-           - Set current_task to the first task
+        ## PR 1: [Title - e.g., "Project Foundation"]
+        - [ ] Task 1.1: Description
+        - [ ] Task 1.2: Description
+        ...
 
-        5. Write initial context to `.claude-task-master/context.md`:
-           - Note key files and patterns discovered
-           - Any important decisions or assumptions
+        ## PR 2: [Title - e.g., "Core Implementation"]
+        - [ ] Task 2.1: Description
+        ...
+        ```
 
-        Be thorough but practical. The plan should be achievable.
+        Guidelines:
+        - 3-10 PRs typically, depending on scope
+        - 3-15 tasks per PR
+        - First PR often includes: project setup, CI, basic structure
+        - Order tasks by dependency (what must be done first)
+        - Include test tasks where appropriate
+        - Include documentation where appropriate
+
+        ### Step 3: Write State Files
+        1. Write plan to `.claude-task-master/plan.md`
+        2. Update `.claude-task-master/state.json`:
+           - Set `status` to `"ready"`
+           - Set `current_task` to first task description
+           - Set `current_pr` to `1`
+        3. Write context to `.claude-task-master/context.md`:
+           - Key files discovered
+           - Patterns to follow
+           - Decisions made
+
+        Be thorough but practical. Each PR should deliver value.
       PROMPT
     end
 
     # Build the work prompt
-    def self.work_prompt(context)
-      <<~PROMPT
-        You are continuing work on a project. Here is your current state:
+    def self.work_prompt(context, no_merge: false)
+      merge_instructions = if no_merge
+                             <<~MERGE
+                               **IMPORTANT: DO NOT MERGE PRs**
+                               - Create PRs but do not merge them
+                               - Wait for manual review and merge
+                               - Once PR is ready (CI green, no unresolved comments), move to next PR
+                               - Set `pr_ready` to `true` in state.json when ready for merge
+                             MERGE
+                           else
+                             <<~MERGE
+                               **Auto-merge is enabled**
+                               - Once PR is approved (CI green, no unresolved comments), merge it:
+                                 `gh pr merge --squash --delete-branch`
+                               - After merge, pull main and start next PR
+                             MERGE
+                           end
 
+      <<~PROMPT
+        # Claude Task Master - Work Session
+
+        You are an autonomous software engineer continuing work on a project.
+
+        ## Current State
         #{context}
 
-        ## Instructions
+        ## Work Loop Instructions
 
-        1. **Read the plan** from `.claude-task-master/plan.md`
-        2. **Pick the next unchecked task** (or continue current if in progress)
-        3. **Do the work**:
-           - Write code, create files, run tests
-           - Create a PR if ready: `gh pr create`
-           - Check CI: `gh pr checks --watch`
-           - Check for review comments: `gh pr view --json comments,reviews`
-           - Fix any issues, push, repeat until clean
+        ### Step 1: Understand Current State
+        - Read `.claude-task-master/plan.md` to see all tasks
+        - Read `.claude-task-master/state.json` for current task and status
+        - Identify what needs to be done next
 
-        4. **Update state files**:
-           - Check off completed tasks in `plan.md`: `- [x] Task`
-           - Update `state.json` with current status and task
-           - Append learnings to `context.md`
-           - Append progress notes to `progress.md`
+        ### Step 2: Execute the Work
 
-        5. **When a task is fully done** (PR merged, CI green, no comments):
-           - Mark it complete in plan.md
-           - Move to next task
-           - Update state.json
+        **If working on a task:**
+        1. Implement the task (write code, create files)
+        2. Run tests/linters if available
+        3. Commit with a clear message
+        4. Check off task in plan.md: `- [x] Task`
+        5. Update state.json with next task
+        6. Continue to next task in same PR
 
-        6. **When ALL tasks are done**:
-           - Set status to "success" in state.json
-           - Write final summary to progress.md
+        **If PR is ready (all tasks for this PR done):**
+        1. Create the PR if not already created:
+           ```bash
+           gh pr create --title "PR Title" --body "Description"
+           ```
+        2. Store PR number in state.json: `pr_number`
 
-        7. **If you get stuck**:
-           - Set status to "blocked" in state.json
-           - Explain the blocker in progress.md
-           - Don't keep retrying the same failing approach
+        **If PR exists, check its status:**
+        1. Check CI status:
+           ```bash
+           gh pr checks
+           ```
+        2. Check for review comments (CodeRabbit, Copilot, human reviewers):
+           ```bash
+           gh pr view --json comments,reviews
+           gh api repos/{owner}/{repo}/pulls/{pr}/comments
+           ```
+        3. **CRITICAL: Address ALL review comments before proceeding**
+           - Read each comment carefully
+           - Make the requested changes
+           - Commit and push: `git push`
+           - Wait for CI to pass again
 
-        Work autonomously. Make decisions. Ship code.
+        **If CI fails:**
+        1. Read the error output: `gh pr checks`
+        2. Fix the issues
+        3. Commit and push
+        4. Repeat until green
+
+        **If review comments exist:**
+        1. Address each comment
+        2. Push fixes
+        3. Comments from bots (CodeRabbit, Copilot) often auto-resolve
+        4. Check again: `gh api repos/{owner}/{repo}/pulls/{pr}/comments`
+
+        #{merge_instructions}
+
+        ### Step 3: Track Progress
+
+        Always update state files after significant progress:
+
+        **plan.md:**
+        - Check off completed tasks: `- [x] Task done`
+        - Keep unchecked tasks: `- [ ] Task pending`
+
+        **state.json:**
+        ```json
+        {
+          "status": "working|ready|blocked|success",
+          "current_task": "Current task description",
+          "current_pr": 1,
+          "pr_number": 123,
+          "pr_ready": false,
+          "session_count": N,
+          "updated_at": "ISO timestamp"
+        }
+        ```
+
+        **progress.md:**
+        - Append notes about what was done
+        - Document any issues encountered
+        - Note decisions made
+
+        **context.md:**
+        - Add newly discovered patterns
+        - Document learnings about the codebase
+
+        ### Step 4: Handle Completion
+
+        **When current PR is complete (merged or ready):**
+        1. Update state.json: increment `current_pr`
+        2. Create new branch from main: `git checkout main && git pull && git checkout -b pr-N-description`
+        3. Reset `pr_number` to null in state.json
+        4. Continue with next PR's tasks
+
+        **When ALL PRs are done:**
+        1. Set status to `"success"` in state.json
+        2. Write completion summary to progress.md
+
+        **If stuck or blocked:**
+        1. Set status to `"blocked"` in state.json
+        2. Explain the blocker clearly in progress.md
+        3. Do NOT retry the same failing approach repeatedly
+
+        ### Guidelines
+        - Work autonomously - make decisions
+        - Ship working code - don't over-engineer
+        - Follow existing patterns in the codebase
+        - Write tests where appropriate
+        - Keep commits focused and well-described
+        - Don't leave commented-out code
+        - Fix issues properly, don't hack around them
       PROMPT
     end
 

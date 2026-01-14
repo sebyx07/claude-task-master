@@ -6,18 +6,31 @@ module ClaudeTaskMaster
   # The main work loop
   # Keeps calling Claude until success criteria met
   class Loop
-    attr_reader :state, :claude, :pastel
+    attr_reader :state, :claude, :pastel, :options
 
-    def initialize(state:, model: 'sonnet')
+    # Options:
+    #   no_merge: Don't auto-merge PRs, require manual merge
+    #   max_sessions: Stop after N sessions
+    #   pause_on_pr: Pause after creating each PR for review
+    #   verbose: Show verbose output
+    def initialize(state:, model: 'sonnet', **opts)
       @state = state
       @claude = Claude.new(model:)
       @pastel = Pastel.new
+      @options = {
+        no_merge: opts[:no_merge] || false,
+        max_sessions: opts[:max_sessions],
+        pause_on_pr: opts[:pause_on_pr] || false,
+        verbose: opts[:verbose] || false
+      }
+      @session_count = 0
     end
 
     # Run the full loop from start
     def run(goal:, criteria:)
       puts pastel.cyan("Starting claude-task-master...")
       puts pastel.dim("Goal: #{goal[0..100]}#{'...' if goal.length > 100}")
+      show_options
       puts
 
       # Initialize state
@@ -41,6 +54,7 @@ module ClaudeTaskMaster
       puts pastel.dim("Goal: #{state.goal[0..100]}#{'...' if state.goal.length > 100}")
       puts pastel.dim("Status: #{current_state[:status]}")
       puts pastel.dim("Session: #{current_state[:session_count]}")
+      show_options
       puts
 
       if current_state[:status] == 'planning'
@@ -52,6 +66,18 @@ module ClaudeTaskMaster
 
     private
 
+    # Display active options
+    def show_options
+      active = []
+      active << 'no-merge' if options[:no_merge]
+      active << "max-sessions=#{options[:max_sessions]}" if options[:max_sessions]
+      active << 'pause-on-pr' if options[:pause_on_pr]
+      active << 'verbose' if options[:verbose]
+      return if active.empty?
+
+      puts pastel.dim("Options: #{active.join(', ')}")
+    end
+
     # Phase 1: Generate plan
     def plan_phase
       puts pastel.yellow("Phase 1: Planning...")
@@ -60,7 +86,7 @@ module ClaudeTaskMaster
       claude_md_path = File.join(Dir.pwd, 'CLAUDE.md')
       existing_claude_md = File.exist?(claude_md_path) ? File.read(claude_md_path) : nil
 
-      prompt = Claude.planning_prompt(state.goal, existing_claude_md:)
+      prompt = Claude.planning_prompt(state.goal, existing_claude_md:, no_merge: options[:no_merge])
 
       session_num = state.next_session_number
       state.update_state(session_count: session_num)
@@ -132,8 +158,30 @@ module ClaudeTaskMaster
           break
         end
 
+        # Check max sessions limit
+        if options[:max_sessions] && @session_count >= options[:max_sessions]
+          puts
+          puts pastel.yellow.bold("MAX SESSIONS REACHED")
+          puts pastel.yellow("Stopped after #{@session_count} sessions. Run 'claude-task-master resume' to continue.")
+          state.append_progress("\n_Stopped at max sessions (#{@session_count}) at #{Time.now.iso8601}_\n")
+          break
+        end
+
         # Run one work iteration
+        pr_before = state.load_state[:pr_number]
         work_iteration
+        @session_count += 1
+
+        # Check if new PR was created
+        pr_after = state.load_state[:pr_number]
+        if pr_after && pr_after != pr_before && options[:pause_on_pr]
+          puts
+          puts pastel.yellow.bold("NEW PR CREATED")
+          puts pastel.yellow("Paused for review. PR ##{pr_after}")
+          puts pastel.dim("Run 'claude-task-master resume' to continue after review.")
+          state.append_progress("\n_Paused for PR review (##{pr_after}) at #{Time.now.iso8601}_\n")
+          break
+        end
 
         # Brief pause between iterations
         sleep 2
@@ -158,7 +206,7 @@ module ClaudeTaskMaster
 
       # Build context and prompt
       context = state.build_context
-      prompt = Claude.work_prompt(context)
+      prompt = Claude.work_prompt(context, no_merge: options[:no_merge])
 
       # Update session count
       state.update_state(session_count: session_num)

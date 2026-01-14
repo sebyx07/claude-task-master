@@ -25,13 +25,23 @@ module ClaudeTaskMaster
     DESC
     option :criteria, type: :string, aliases: '-c', desc: 'Success criteria (will prompt if not provided)'
     option :model, type: :string, default: 'sonnet', desc: 'Claude model to use (sonnet, opus, haiku)'
+    option :no_merge, type: :boolean, default: false, desc: 'Do not auto-merge PRs (require manual merge)'
+    option :max_sessions, type: :numeric, aliases: '-m', desc: 'Maximum number of sessions before stopping'
+    option :pause_on_pr, type: :boolean, default: false, desc: 'Pause after creating each PR for review'
+    option :verbose, type: :boolean, aliases: '-v', default: false, desc: 'Show verbose output'
     def start(goal)
       check_prerequisites!
 
       criteria = options[:criteria] || prompt_for_criteria
 
       state = State.new
-      loop = Loop.new(state:, model: options[:model])
+      loop_opts = {
+        no_merge: options[:no_merge],
+        max_sessions: options[:max_sessions],
+        pause_on_pr: options[:pause_on_pr],
+        verbose: options[:verbose]
+      }
+      loop = Loop.new(state:, model: options[:model], **loop_opts)
       loop.run(goal:, criteria:)
     end
 
@@ -46,6 +56,10 @@ module ClaudeTaskMaster
       - Coming back the next day
     DESC
     option :model, type: :string, default: 'sonnet', desc: 'Claude model to use'
+    option :no_merge, type: :boolean, default: false, desc: 'Do not auto-merge PRs'
+    option :max_sessions, type: :numeric, aliases: '-m', desc: 'Maximum sessions before stopping'
+    option :pause_on_pr, type: :boolean, default: false, desc: 'Pause after creating each PR'
+    option :verbose, type: :boolean, aliases: '-v', default: false, desc: 'Show verbose output'
     def resume
       check_prerequisites!
 
@@ -57,7 +71,13 @@ module ClaudeTaskMaster
         exit 1
       end
 
-      loop = Loop.new(state:, model: options[:model])
+      loop_opts = {
+        no_merge: options[:no_merge],
+        max_sessions: options[:max_sessions],
+        pause_on_pr: options[:pause_on_pr],
+        verbose: options[:verbose]
+      }
+      loop = Loop.new(state:, model: options[:model], **loop_opts)
       loop.resume
     end
 
