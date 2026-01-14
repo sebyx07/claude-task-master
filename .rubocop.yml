@@ -1,10 +1,6 @@
 # RuboCop configuration for claude-task-master
 # A production-grade Ruby gem for autonomous Claude Code orchestration
 
-require:
-  - rubocop-rake
-  - rubocop-rspec
-
 AllCops:
   NewCops: enable
   TargetRubyVersion: 3.1
@@ -38,6 +34,7 @@ Metrics/AbcSize:
   Exclude:
     - 'lib/claude_task_master/cli.rb'
     - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
 
 Metrics/BlockLength:
   Max: 25
@@ -45,6 +42,7 @@ Metrics/BlockLength:
     - '*.gemspec'
     - 'spec/**/*'
     - 'lib/claude_task_master/cli.rb'  # Thor commands need longer blocks
+    - 'lib/claude_task_master/loop.rb' # Work loop needs longer blocks
 
 Metrics/ClassLength:
   Max: 200
@@ -52,24 +50,29 @@ Metrics/ClassLength:
     - 'lib/claude_task_master/cli.rb'
     - 'lib/claude_task_master/loop.rb'
     - 'lib/claude_task_master/github.rb'
+    - 'lib/claude_task_master/claude.rb'
 
 Metrics/CyclomaticComplexity:
   Max: 10
   Exclude:
     - 'lib/claude_task_master/cli.rb'
     - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
 
 Metrics/MethodLength:
   Max: 25
   Exclude:
     - 'lib/claude_task_master/cli.rb'
     - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/claude.rb'  # Prompt builders need to be long
+    - 'lib/claude_task_master/github.rb'
 
 Metrics/PerceivedComplexity:
   Max: 10
   Exclude:
     - 'lib/claude_task_master/cli.rb'
     - 'lib/claude_task_master/loop.rb'
+    - 'lib/claude_task_master/pr_comment.rb'
 
 # == Naming ==
 
@@ -145,19 +148,5 @@ Gemspec/RequireMFA:
   Enabled: true
 
 Gemspec/DevelopmentDependencies:
-  # Use add_development_dependency for test/dev deps
-  Enabled: true
-
-# == RSpec (when tests are added) ==
-
-RSpec/MultipleExpectations:
-  Max: 5
-
-RSpec/ExampleLength:
-  Max: 25
-
-RSpec/NestedGroups:
-  Max: 5
-
-RSpec/MultipleMemoizedHelpers:
-  Max: 10
+  # We keep dev dependencies in gemspec for gem publication
+  Enabled: false

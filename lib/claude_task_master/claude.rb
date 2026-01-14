@@ -1,25 +1,25 @@
 # frozen_string_literal: true
 
-require 'open3'
-require 'timeout'
+require "open3"
+require "timeout"
 
 module ClaudeTaskMaster
   # Wrapper around the Claude Code CLI
   # Handles invocation, output capture, and error handling
   class Claude
     DEFAULT_TIMEOUT = 3600 # 1 hour max per invocation
-    CLAUDE_BINARY = 'claude'
+    CLAUDE_BINARY = "claude"
 
     attr_reader :model, :timeout
 
-    def initialize(model: 'sonnet', timeout: DEFAULT_TIMEOUT)
+    def initialize(model: "sonnet", timeout: DEFAULT_TIMEOUT)
       @model = model
       @timeout = timeout
     end
 
     # Check if Claude CLI is available
     def self.available?
-      system('which claude > /dev/null 2>&1')
+      system("which claude > /dev/null 2>&1")
     end
 
     # Get Claude version
@@ -33,7 +33,7 @@ module ClaudeTaskMaster
       args = build_args(allowed_tools)
       cmd = [CLAUDE_BINARY, *args, prompt]
 
-      output = +''
+      output = +""
       success = false
       exit_code = nil
 
@@ -46,7 +46,7 @@ module ClaudeTaskMaster
             stdout_err.each_line do |line|
               output << line
               # Minimal progress indicator
-              $stdout.print '.' if line.include?('[Tool:')
+              $stdout.print "." if line.include?("[Tool:")
             end
 
             exit_code = wait_thr.value.exitstatus
@@ -55,7 +55,7 @@ module ClaudeTaskMaster
         end
       end
 
-      $stdout.puts if output.include?('[Tool:') # Newline after dots
+      $stdout.puts if output.include?("[Tool:") # Newline after dots
 
       [success, output, exit_code]
     rescue Timeout::Error
@@ -72,11 +72,11 @@ module ClaudeTaskMaster
                               The project already has a CLAUDE.md file. Read and follow its conventions:
 
                               ```
-                              #{existing_claude_md[0..2000]}#{'...' if existing_claude_md.length > 2000}
+                              #{existing_claude_md[0..2000]}#{"..." if existing_claude_md.length > 2000}
                               ```
                             SECTION
                           else
-                            ''
+                            ""
                           end
 
       <<~PROMPT
@@ -290,14 +290,12 @@ module ClaudeTaskMaster
 
     def build_args(allowed_tools)
       args = [
-        '-p',
-        '--dangerously-skip-permissions',
-        '--model', model
+        "-p",
+        "--dangerously-skip-permissions",
+        "--model", model
       ]
 
-      if allowed_tools
-        args += ['--allowedTools', allowed_tools.join(',')]
-      end
+      args += ["--allowedTools", allowed_tools.join(",")] if allowed_tools
 
       args
     end

@@ -28,15 +28,15 @@ Gem::Specification.new do |spec|
   }
 
   spec.files         = Dir["lib/**/*", "bin/*", "CLAUDE.md", "README.md", "LICENSE", "CHANGELOG.md"]
-  spec.bindir        = 'bin'
-  spec.executables   = ['claude-task-master']
-  spec.require_paths = ['lib']
+  spec.bindir        = "bin"
+  spec.executables   = ["claude-task-master"]
+  spec.require_paths = ["lib"]
 
   # Runtime dependencies
+  spec.add_dependency "octokit", "~> 10.0"    # GitHub API client
+  spec.add_dependency "pastel", "~> 0.8"      # Terminal colors
   spec.add_dependency "thor", "~> 1.3"        # CLI framework
   spec.add_dependency "tty-spinner", "~> 0.9" # Progress indicators
-  spec.add_dependency "pastel", "~> 0.8"      # Terminal colors
-  spec.add_dependency "octokit", "~> 10.0"    # GitHub API client
 
   # Development dependencies
   spec.add_development_dependency "rspec", "~> 3.12"
