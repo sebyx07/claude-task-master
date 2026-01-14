@@ -86,6 +86,30 @@ module ClaudeTaskMaster
       puts
     end
 
+    # Show current PR status (CI, comments)
+    def show_pr_status(pr_number)
+      ci_status = GitHub.pr_status(pr_number)
+      unresolved = GitHub.unresolved_threads(pr_number)
+
+      status_icon = case ci_status[:status]
+                    when :passing then pastel.green('CI passing')
+                    when :failing then pastel.red('CI failing')
+                    when :pending then pastel.yellow('CI pending')
+                    else pastel.dim('CI unknown')
+                    end
+
+      comments_text = if unresolved.empty?
+                        pastel.green('0 unresolved')
+                      else
+                        pastel.yellow("#{unresolved.size} unresolved comments")
+                      end
+
+      puts pastel.dim("  PR ##{pr_number}: #{status_icon} | #{comments_text}")
+    rescue StandardError => e
+      # Don't fail if we can't get PR status
+      puts pastel.dim("  PR ##{pr_number}: (couldn't fetch status)")
+    end
+
     # Phase 2: Work until done
     def work_loop
       puts pastel.yellow("Phase 2: Working...")
@@ -124,6 +148,11 @@ module ClaudeTaskMaster
     def work_iteration
       current_state = state.load_state
       session_num = state.next_session_number
+
+      # Show PR/CI status if we have a PR
+      if current_state[:pr_number]
+        show_pr_status(current_state[:pr_number])
+      end
 
       puts pastel.cyan("[Session #{session_num}] Working on: #{current_state[:current_task] || 'next task'}")
 
