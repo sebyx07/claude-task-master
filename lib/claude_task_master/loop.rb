@@ -143,7 +143,10 @@ module ClaudeTaskMaster
         if state.success?
           puts
           puts pastel.green.bold("SUCCESS!")
-          puts pastel.green("All tasks completed. Check .claude-task-master/progress.md")
+          puts pastel.green("All tasks completed successfully.")
+          # Clean up state directory on success
+          FileUtils.rm_rf(state.dir)
+          puts pastel.dim("Cleaned up #{state.dir}")
           break
         end
 

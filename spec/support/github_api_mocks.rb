@@ -37,11 +37,11 @@ RSpec.shared_context "with mocked github api", :github_api do
 
   def stub_github_pr(number:, state: "open", mergeable: true)
     stub_github_api(:get, "/repos/owner/repo/pulls/#{number}", {
-      number: number,
-      state: state,
-      mergeable: mergeable,
-      html_url: "https://github.com/owner/repo/pull/#{number}"
-    })
+                      number: number,
+                      state: state,
+                      mergeable: mergeable,
+                      html_url: "https://github.com/owner/repo/pull/#{number}"
+                    })
   end
 
   def stub_github_pr_comments(pr_number:, comments: [])
