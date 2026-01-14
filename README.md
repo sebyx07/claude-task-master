@@ -69,6 +69,17 @@ claude-task-master logs --session 5
 claude-task-master context
 claude-task-master progress
 
+# PR comments (uses current PR if not specified)
+claude-task-master comments        # all comments
+claude-task-master comments 123    # specific PR
+claude-task-master comments -a     # actionable only
+claude-task-master comments -u     # unresolved threads
+
+# PR management
+claude-task-master pr status       # PR info
+claude-task-master pr checks       # CI status
+claude-task-master pr merge        # merge current PR
+
 # Clean up and start fresh
 claude-task-master clean
 claude-task-master clean -f  # skip confirmation

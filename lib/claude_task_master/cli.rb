@@ -319,6 +319,92 @@ module ClaudeTaskMaster
       end
     end
 
+    desc 'comments [PR_NUMBER]', 'Show PR review comments'
+    option :actionable, type: :boolean, aliases: '-a', default: false, desc: 'Show only actionable comments'
+    option :unresolved, type: :boolean, aliases: '-u', default: false, desc: 'Show only unresolved threads'
+    def comments(pr_number = nil)
+      state = State.new
+      pastel = Pastel.new
+
+      # Get PR number from state if not provided
+      if pr_number.nil? && state.exists?
+        current = state.load_state
+        pr_number = current[:pr_number]
+      end
+
+      if pr_number.nil?
+        puts pastel.yellow("No PR number provided and no active PR in state.")
+        puts "Usage: claude-task-master comments 123"
+        return
+      end
+
+      puts pastel.cyan.bold("PR ##{pr_number} Comments")
+      puts
+
+      if options[:unresolved]
+        threads = GitHub.unresolved_threads(pr_number.to_i)
+        if threads.empty?
+          puts pastel.green("No unresolved threads!")
+        else
+          puts pastel.yellow("#{threads.size} unresolved thread(s):")
+          threads.each do |thread|
+            puts
+            puts pastel.dim("  Author: #{thread[:author]}")
+            puts pastel.dim("  File: #{thread[:file_path]}:#{thread[:line]}")
+            puts "  #{thread[:body]&.lines&.first&.strip}"
+          end
+        end
+      else
+        all_comments = GitHub.pr_comments(pr_number.to_i)
+        comments = options[:actionable] ? all_comments.select(&:actionable?) : all_comments
+
+        if comments.empty?
+          puts pastel.green(options[:actionable] ? "No actionable comments!" : "No comments!")
+        else
+          comments.each do |comment|
+            puts severity_badge(comment.severity, pastel)
+            puts pastel.dim("  #{comment.file_path}:#{comment.line_range}")
+            puts pastel.dim("  Author: #{comment.author}")
+            puts "  #{comment.summary || comment.body&.lines&.first&.strip}"
+            puts pastel.dim("  #{comment.html_url}")
+            puts
+          end
+        end
+      end
+    rescue StandardError => e
+      puts pastel.red("Error fetching comments: #{e.message}")
+    end
+
+    desc 'pr [SUBCOMMAND]', 'PR management commands'
+    option :number, type: :numeric, aliases: '-n', desc: 'PR number (uses current if not specified)'
+    def pr(subcommand = 'status')
+      state = State.new
+      pastel = Pastel.new
+
+      pr_number = options[:number]
+      if pr_number.nil? && state.exists?
+        current = state.load_state
+        pr_number = current[:pr_number]
+      end
+
+      if pr_number.nil?
+        puts pastel.yellow("No PR number provided and no active PR in state.")
+        return
+      end
+
+      case subcommand
+      when 'status', 'info'
+        show_pr_info(pr_number, pastel)
+      when 'checks', 'ci'
+        show_pr_checks(pr_number, pastel)
+      when 'merge'
+        merge_current_pr(pr_number, pastel)
+      else
+        puts pastel.yellow("Unknown subcommand: #{subcommand}")
+        puts "Available: status, checks, merge"
+      end
+    end
+
     # Default command (no args = resume or show help)
     default_task :default_action
 
@@ -369,6 +455,82 @@ module ClaudeTaskMaster
         pastel.yellow(status)
       else
         status
+      end
+    end
+
+    def severity_badge(severity, pastel)
+      case severity
+      when 'critical'
+        pastel.red.bold("[CRITICAL]")
+      when 'warning'
+        pastel.yellow.bold("[WARNING]")
+      when 'major'
+        pastel.magenta.bold("[MAJOR]")
+      when 'trivial'
+        pastel.dim("[trivial]")
+      when 'nitpick'
+        pastel.dim("[nitpick]")
+      when 'refactor'
+        pastel.blue("[refactor]")
+      when 'suggestion'
+        pastel.cyan("[suggestion]")
+      else
+        pastel.dim("[info]")
+      end
+    end
+
+    def show_pr_info(pr_number, pastel)
+      info = GitHub.pr_info(pr_number)
+
+      if info.nil?
+        puts pastel.red("Could not fetch PR ##{pr_number}")
+        return
+      end
+
+      puts pastel.cyan.bold("PR ##{info[:number]}: #{info[:title]}")
+      puts pastel.dim("State: ") + status_color(info[:state], pastel)
+      puts pastel.dim("Branch: #{info[:head_ref]} -> #{info[:base_ref]}")
+      puts pastel.dim("Mergeable: ") + (info[:mergeable] ? pastel.green("yes") : pastel.red("no"))
+      puts pastel.dim("URL: #{info[:url]}")
+    end
+
+    def show_pr_checks(pr_number, pastel)
+      status = GitHub.pr_status(pr_number)
+
+      puts pastel.cyan.bold("CI Status: ") + ci_status_color(status[:status], pastel)
+      puts
+
+      status[:checks].each do |check|
+        icon = case check[:conclusion] || check[:bucket]
+               when 'success', 'pass' then pastel.green('✓')
+               when 'failure', 'fail' then pastel.red('✗')
+               when 'pending' then pastel.yellow('○')
+               else pastel.dim('?')
+               end
+        puts "  #{icon} #{check[:name]}"
+      end
+    end
+
+    def merge_current_pr(pr_number, pastel)
+      puts pastel.yellow("Merging PR ##{pr_number}...")
+
+      if GitHub.merge_pr(pr_number)
+        puts pastel.green("PR ##{pr_number} merged successfully!")
+      else
+        puts pastel.red("Failed to merge PR ##{pr_number}")
+      end
+    end
+
+    def ci_status_color(status, pastel)
+      case status
+      when :passing
+        pastel.green('PASSING')
+      when :failing
+        pastel.red('FAILING')
+      when :pending
+        pastel.yellow('PENDING')
+      else
+        pastel.dim('UNKNOWN')
       end
     end
   end
