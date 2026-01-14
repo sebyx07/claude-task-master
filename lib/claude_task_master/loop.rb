@@ -155,7 +155,9 @@ module ClaudeTaskMaster
           puts
           puts pastel.red.bold("BLOCKED")
           puts pastel.red("Claude got stuck. Check .claude-task-master/progress.md for details.")
-          break
+          puts
+          puts pastel.yellow("Reason: #{state.blocked_reason}")
+          exit 1
         end
 
         # Check max sessions limit

@@ -128,7 +128,15 @@ module ClaudeTaskMaster
     # Check if blocked
     def blocked?
       state = load_state
-      state && state[:status] == 'blocked'
+      state && state[:status] == "blocked"
+    end
+
+    # Get blocked reason from state notes
+    def blocked_reason
+      state = load_state
+      return nil unless state
+
+      state[:notes] || state[:blocked_reason] || "No reason provided"
     end
 
     # Build context string for Claude
