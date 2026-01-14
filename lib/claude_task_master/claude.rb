@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
 require "open3"
+require "pty"
+require "shellwords"
 require "timeout"
+
+# Force unbuffered stdout for real-time progress
+$stdout.sync = true
 
 module ClaudeTaskMaster
   # Wrapper around the Claude Code CLI
@@ -31,7 +36,6 @@ module ClaudeTaskMaster
     # Returns [success, output, exit_code]
     def invoke(prompt, allowed_tools: nil, working_dir: nil)
       args = build_args(allowed_tools)
-      cmd = [CLAUDE_BINARY, *args, prompt]
 
       output = +""
       success = false
@@ -39,28 +43,13 @@ module ClaudeTaskMaster
 
       Dir.chdir(working_dir || Dir.pwd) do
         Timeout.timeout(timeout) do
-          Open3.popen2e(*cmd) do |stdin, stdout_err, wait_thr|
-            stdin.close
-
-            # Stream output in real-time with progress feedback
-            last_progress = Time.now
-            stdout_err.each_line do |line|
-              output << line
-              # Show progress indicator
-              if line.include?("[Tool:")
-                $stdout.print "."
-                $stdout.flush
-              elsif Time.now - last_progress > 10
-                # Show heartbeat every 10 seconds during long operations
-                $stdout.print "."
-                $stdout.flush
-                last_progress = Time.now
-              end
-            end
-
-            exit_code = wait_thr.value.exitstatus
-            success = exit_code.zero?
-          end
+          # Use PTY for real-time output (forces line buffering on subprocess)
+          # Fall back to Open3 only for tests or if PTY not available
+          if ENV["CLAUDE_TASK_MASTER_USE_OPEN3"]
+            invoke_with_open3(args, prompt, output)
+          else
+            invoke_with_pty(args, prompt, output)
+          end => [success, exit_code]
         end
       end
 
@@ -71,6 +60,73 @@ module ClaudeTaskMaster
       [false, "#{output}\n\n[TIMEOUT after #{timeout}s]", -1]
     rescue StandardError => e
       [false, "#{output}\n\n[ERROR: #{e.message}]", -1]
+    end
+
+    private
+
+    # Invoke using PTY for real-time output (pseudo-terminal forces line buffering)
+    def invoke_with_pty(args, prompt, output)
+      # Build shell-safe command - only the prompt needs escaping
+      cmd_parts = [CLAUDE_BINARY, *args, Shellwords.shellescape(prompt)]
+      cmd = cmd_parts.join(" ")
+      success = false
+      exit_code = nil
+
+      PTY.spawn(cmd) do |reader, writer, pid|
+        writer.close
+        stream_output(reader, output)
+
+        _pid, status = Process.wait2(pid)
+        exit_code = status.exitstatus
+        success = exit_code.zero?
+      end
+
+      [success, exit_code]
+    end
+
+    # Invoke using Open3 (for tests and non-TTY environments)
+    def invoke_with_open3(args, prompt, output)
+      cmd = [CLAUDE_BINARY, *args, prompt]
+      success = false
+      exit_code = nil
+
+      Open3.popen2e(*cmd) do |stdin, stdout_err, wait_thr|
+        stdin.close
+        stream_output(stdout_err, output)
+
+        exit_code = wait_thr.value.exitstatus
+        success = exit_code.zero?
+      end
+
+      [success, exit_code]
+    end
+
+    # Stream output from reader to output buffer, showing progress
+    def stream_output(reader, output)
+      last_progress = Time.now
+      tool_count = 0
+
+      begin
+        reader.each_line do |line|
+          output << line
+          if line.include?("[Tool:")
+            tool_count += 1
+            if tool_count % 20 == 0
+              $stdout.puts "[#{tool_count} tools used]"
+            else
+              $stdout.print "."
+            end
+            $stdout.flush
+          elsif Time.now - last_progress > 30
+            elapsed = (Time.now - last_progress).to_i
+            $stdout.puts "[working... #{elapsed}s]"
+            $stdout.flush
+            last_progress = Time.now
+          end
+        end
+      rescue Errno::EIO
+        # Expected when PTY closes
+      end
     end
 
     # Build the planning prompt
