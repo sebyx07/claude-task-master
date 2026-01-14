@@ -191,7 +191,10 @@ module ClaudeTaskMaster
         **If PR is ready (all tasks for this PR done):**
         1. Create the PR if not already created:
            ```bash
-           gh pr create --title "PR Title" --body "Description"
+           gh pr create --title "PR Title" --body "Description
+
+           ---
+           Built with [claude-task-master](https://github.com/sebyx07/claude-task-master) + [Claude Code](https://claude.ai/code)"
            ```
         2. Store PR number in state.json: `pr_number`
 

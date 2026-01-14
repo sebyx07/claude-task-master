@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = 'claude-task-master'
-  spec.version       = '0.1.0'
+  spec.version       = '0.2.0'
   spec.authors       = ['developerz.ai']
   spec.email         = ['hello@developerz.ai']
 
