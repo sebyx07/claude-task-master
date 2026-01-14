@@ -1,0 +1,23 @@
+# Gem artifacts
+*.gem
+pkg/
+
+# Dependencies
+Gemfile.lock
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# Testing
+coverage/
+.rspec_status
+
+# OS
+.DS_Store
+Thumbs.db
+
+# State (don't commit actual runs)
+.claude-task-master/
