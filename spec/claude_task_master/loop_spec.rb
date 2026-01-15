@@ -3,34 +3,12 @@
 require "spec_helper"
 
 RSpec.describe ClaudeTaskMaster::Loop, :temp_dir do
+  include_context "with loop helpers"
+
   let(:state) { ClaudeTaskMaster::State.new(temp_dir) }
   let(:loop) { described_class.new(state: state, model: "sonnet") }
   let(:goal) { "Build a REST API with authentication" }
   let(:criteria) { "All tests pass with 80%+ coverage" }
-
-  # Helper methods for stubbing dependencies
-  def stub_claude_invoke_success(output: "Task completed successfully")
-    stdin = double("stdin", close: nil)
-    stdout = StringIO.new(output)
-    allow(stdout).to receive(:each_line) { |&block| output.each_line(&block) }
-    wait_thread = double("Thread", value: double("Process::Status", exitstatus: 0, success?: true))
-
-    allow(Open3).to receive(:popen2e).and_yield(stdin, stdout, wait_thread)
-  end
-
-  def stub_claude_invoke_failure(output: "Error occurred", exit_status: 1)
-    stdin = double("stdin", close: nil)
-    stdout = StringIO.new(output)
-    allow(stdout).to receive(:each_line) { |&block| output.each_line(&block) }
-    wait_thread = double("Thread", value: double("Process::Status", exitstatus: exit_status, success?: false))
-
-    allow(Open3).to receive(:popen2e).and_yield(stdin, stdout, wait_thread)
-  end
-
-  def stub_github_pr_status(status: :passing, unresolved: [])
-    allow(ClaudeTaskMaster::GitHub).to receive(:pr_status).and_return({ status: status })
-    allow(ClaudeTaskMaster::GitHub).to receive(:unresolved_threads).and_return(unresolved)
-  end
 
   describe "#initialize" do
     it "sets state" do
@@ -107,9 +85,8 @@ RSpec.describe ClaudeTaskMaster::Loop, :temp_dir do
 
   describe "#run" do
     before do
-      stub_claude_invoke_success
-      allow($stdout).to receive(:print)
-      allow($stdout).to receive(:puts)
+      stub_claude_invoke
+      suppress_output
       # Stub both plan_phase and work_loop to prevent actual execution
       allow(loop).to receive(:plan_phase)
       allow(loop).to receive(:work_loop)
@@ -139,9 +116,8 @@ RSpec.describe ClaudeTaskMaster::Loop, :temp_dir do
     before do
       state.init(goal: goal, criteria: criteria)
       state.update_state(status: "ready", session_count: 3)
-      stub_claude_invoke_success
-      allow($stdout).to receive(:print)
-      allow($stdout).to receive(:puts)
+      stub_claude_invoke
+      suppress_output
       # Stub work_loop to prevent infinite loop
       allow(loop).to receive(:work_loop)
     end
