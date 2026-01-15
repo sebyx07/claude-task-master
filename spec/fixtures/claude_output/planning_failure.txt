@@ -1,0 +1,11 @@
+Error: Unable to analyze the codebase structure.
+
+I attempted to explore the project but encountered issues:
+- Missing package.json or Gemfile
+- Unclear project structure
+- Cannot determine the framework being used
+
+I need more information to create a proper plan. Please ensure:
+1. The project has proper dependency files
+2. The project structure follows standard conventions
+3. There is a README explaining the project setup

@@ -1,0 +1,26 @@
+Working on: Set up database schema for users table
+
+I'll create the migration for the users table and the User model.
+
+Created db/migrate/20260114_create_users.rb with the users table including:
+- id (primary key)
+- email (string, unique)
+- password_digest (string)
+- timestamps
+
+Created app/models/user.rb with:
+- bcrypt password hashing
+- email validations (presence, uniqueness, format)
+- password length validations
+
+Running the migration...
+Migration completed successfully.
+
+Running tests...
+All tests pass.
+
+Updating state files:
+- Marked Task 1.1 as complete in plan.md
+- Updated current_task to "Create User model with validations" in state.json
+
+Task completed. Ready to continue with next task.
